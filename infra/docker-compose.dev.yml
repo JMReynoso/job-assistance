@@ -1,13 +1,13 @@
 services:
   web:
     build:
-      context: ../../web
+      context: ../web
       dockerfile: Dockerfile.dev
     ports:
       - "3000:3000"
     environment:
       NODE_ENV: development
     volumes:
-      - ../../web:/app
+      - ../web:/app
       - /app/node_modules
       - /app/.next
