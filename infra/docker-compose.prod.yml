@@ -1,3 +1,5 @@
+name: job-assistance-prod
+
 services:
   web:
     build:
@@ -8,3 +10,41 @@ services:
     environment:
       NODE_ENV: production
     restart: unless-stopped
+
+  api:
+    build:
+      context: ../api
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      # Override these via exported shell env vars or `--env-file` at deploy
+      # time rather than editing the defaults below.
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-job_assistance}
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-job_assistance}
+    # No host port mapping: only `api` needs to reach Postgres, over the
+    # compose network by service name — keep it off the host's network.
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  # Named volume, independent of the container lifecycle — data survives
+  # `docker compose down` / rebuilds / new images, not just container restarts.
+  # Only `docker compose down -v` (or deleting the volume directly) wipes it.
+  postgres-data:
