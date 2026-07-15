@@ -9,8 +9,15 @@ interface ConfirmDeleteModalProps {
 export default function ConfirmDeleteModal({ title, onConfirm, onCancel }: ConfirmDeleteModalProps) {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[rgba(45,36,26,0.5)] p-5">
-      <div className="w-full max-w-[400px] rounded-[20px] bg-card p-[26px] shadow-[0_24px_70px_rgba(40,30,18,0.35)]">
-        <h3 className="m-0 mb-2 font-heading text-[20px] font-semibold">Delete this job?</h3>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-delete-modal-title"
+        className="w-full max-w-[400px] rounded-[20px] bg-card p-[26px] shadow-[0_24px_70px_rgba(40,30,18,0.35)]"
+      >
+        <h3 id="confirm-delete-modal-title" className="m-0 mb-2 font-heading text-[20px] font-semibold">
+          Delete this job?
+        </h3>
         <p className="mb-[22px] text-[14px] leading-[1.5] text-muted-2">
           {`This removes ${title} from your tracker. This can’t be undone.`}
         </p>

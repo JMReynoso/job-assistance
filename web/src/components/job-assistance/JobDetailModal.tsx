@@ -31,9 +31,16 @@ export default function JobDetailModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-[rgba(45,36,26,0.42)] px-5 py-10">
-      <div className="w-full max-w-[780px] overflow-hidden rounded-3xl bg-card shadow-[0_24px_70px_rgba(40,30,18,0.32)]">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="job-detail-modal-title"
+        className="w-full max-w-[780px] overflow-hidden rounded-3xl bg-card shadow-[0_24px_70px_rgba(40,30,18,0.32)]"
+      >
         <div className="flex items-center justify-between border-b border-table-border bg-[#fbf8f1] px-6 py-5">
-          <div className="font-heading text-[21px] font-semibold">{title}</div>
+          <div id="job-detail-modal-title" className="font-heading text-[21px] font-semibold">
+            {title}
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={onTrash}
