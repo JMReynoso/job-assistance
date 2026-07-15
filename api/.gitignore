@@ -1,29 +1,4 @@
-# compiled output
-/dist
-/node_modules
+# Nest-specific. Shared patterns (node_modules, .env, dist, coverage,
+# OS/editor cruft) live in the root .gitignore.
 
-# logs
-logs
-*.log
-npm-debug.log*
-
-# env files
-.env
-.env.*.local
-
-# coverage
-/coverage
-
-# IDE
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-.idea
-
-# OS
-.DS_Store
-
-# tests
 /test/dist

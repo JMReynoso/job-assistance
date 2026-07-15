@@ -1,0 +1,34 @@
+# Shared across every package (web/, api/, infra/). Package-specific
+# patterns live in that package's own .gitignore.
+
+# dependencies
+**/node_modules
+**/.pnp
+**/.pnp.js
+
+# env files
+**/.env
+**/.env.*.local
+
+# build output / coverage
+**/dist
+**/build
+**/coverage
+**/*.tsbuildinfo
+
+# logs
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/*.log
+
+# OS
+**/.DS_Store
+
+# IDE
+**/.vscode/*
+!**/.vscode/settings.json
+!**/.vscode/tasks.json
+!**/.vscode/launch.json
+!**/.vscode/extensions.json
+**/.idea
