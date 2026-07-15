@@ -36,4 +36,4 @@ export const OPEN_BUTTON_BG = "#e8efd9";
 export const OPEN_BUTTON_COLOR = "#5f7a3a";
 export const TABLE_STRIPED = true;
 export const WARN_ON_CLOSE = true;
-export const STALE_THRESHOLD_DAYS = 3;
+export const STALE_THRESHOLD_DAYS = 5;

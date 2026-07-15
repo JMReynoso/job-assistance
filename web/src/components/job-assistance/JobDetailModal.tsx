@@ -111,15 +111,6 @@ export default function JobDetailModal({
           </div>
 
           <TextAreaField
-            className="mt-4"
-            label="Extra links (optional)"
-            value={draft.extraLinks}
-            onChange={(v) => onFieldChange("extraLinks", v)}
-            placeholder="Any other useful links — Glassdoor, Crunchbase, press mentions… one per line"
-            minHeight={70}
-          />
-
-          <TextAreaField
             className="mt-5"
             label="Notes"
             value={draft.notes}
