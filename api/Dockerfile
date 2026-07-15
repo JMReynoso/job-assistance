@@ -23,7 +23,7 @@ RUN npm ci --omit=dev
 COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
 
 USER nestjs
-EXPOSE 3001
-ENV PORT=3001
+EXPOSE 4001
+ENV PORT=4001
 
 CMD ["node", "dist/main.js"]

@@ -6,7 +6,7 @@ services:
       context: ../web
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "4000:4000"
     environment:
       NODE_ENV: production
     restart: unless-stopped
@@ -16,10 +16,10 @@ services:
       context: ../api
       dockerfile: Dockerfile
     ports:
-      - "3001:3001"
+      - "4001:4001"
     environment:
       NODE_ENV: production
-      PORT: 3001
+      PORT: 4001
       DB_HOST: postgres
       DB_PORT: 5432
       # Override these via exported shell env vars or `--env-file` at deploy
