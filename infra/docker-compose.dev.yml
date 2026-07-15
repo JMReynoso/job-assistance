@@ -28,6 +28,9 @@ services:
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
       DB_NAME: job_assistance
+      # ANTHROPIC_API_KEY is intentionally NOT set here — it's read from
+      # api/.env (loaded by NestJS ConfigModule via the ../api bind mount).
+      # Setting it here would override that file with an empty value.
     volumes:
       - ../api:/app
       - /app/node_modules

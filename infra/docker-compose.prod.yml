@@ -27,6 +27,11 @@ services:
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_NAME: ${DB_NAME:-job_assistance}
+      # Provide at deploy time (exported shell env or `--env-file`). No
+      # api/.env here — the prod image has no bind mount — so the key must
+      # come through the environment. Empty default keeps prod bootable when
+      # AI features aren't in use.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on:
       - postgres
     restart: unless-stopped
