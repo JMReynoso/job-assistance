@@ -2,6 +2,7 @@
 
 import type { HomeFormState } from "@/lib/job-assistance/types";
 import FormField from "./FormField";
+import TextAreaField from "./TextAreaField";
 
 interface AddJobFormProps {
   home: HomeFormState;
@@ -33,6 +34,15 @@ export default function AddJobForm({ home, onFieldChange, onAdd }: AddJobFormPro
           />
         ))}
       </div>
+
+      <TextAreaField
+        className="mb-5"
+        label="Extra links (optional)"
+        value={home.extraLinks}
+        onChange={(value) => onFieldChange("extraLinks", value)}
+        placeholder="Any other useful links — Glassdoor, Crunchbase, press mentions… one per line"
+        minHeight={70}
+      />
 
       <div className="flex justify-end">
         <button

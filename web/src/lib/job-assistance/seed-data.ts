@@ -15,6 +15,7 @@ export const INITIAL_JOBS: Job[] = [
     referralName: "",
     jobPostingUrl: "",
     companyLinkedInUrl: "",
+    extraLinks: "",
     notes:
       "Reached out to Dana after the info session.\nWaiting to hear about a phone screen — follow up if nothing by Friday.",
     recruiterMessage: "",
@@ -34,6 +35,7 @@ export const INITIAL_JOBS: Job[] = [
     referralName: "Priya N.",
     jobPostingUrl: "",
     companyLinkedInUrl: "",
+    extraLinks: "",
     notes: "Second round scheduled for next Tuesday. Prep portfolio walk-through.",
     recruiterMessage: "",
     followupMessage: "",
@@ -52,6 +54,7 @@ export const INITIAL_JOBS: Job[] = [
     referralName: "",
     jobPostingUrl: "",
     companyLinkedInUrl: "",
+    extraLinks: "",
     notes: "Saw the opening on their careers page. Draft an intro note.",
     recruiterMessage: "",
     followupMessage: "",

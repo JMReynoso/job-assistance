@@ -10,6 +10,7 @@ const EMPTY_HOME_FORM: HomeFormState = {
   jobPosting: "",
   companyPage: "",
   companyLinkedIn: "",
+  extraLinks: "",
 };
 
 function createId(): string {
@@ -48,6 +49,7 @@ export function useJobTracker() {
       referralName: "",
       jobPostingUrl: home.jobPosting,
       companyLinkedInUrl: home.companyLinkedIn,
+      extraLinks: home.extraLinks,
       notes: "",
       recruiterMessage: "",
       followupMessage: "",

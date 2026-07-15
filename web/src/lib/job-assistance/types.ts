@@ -23,6 +23,7 @@ export interface Job {
   referralName: string;
   jobPostingUrl: string;
   companyLinkedInUrl: string;
+  extraLinks: string;
   notes: string;
   recruiterMessage: string;
   followupMessage: string;
@@ -33,4 +34,5 @@ export interface HomeFormState {
   jobPosting: string;
   companyPage: string;
   companyLinkedIn: string;
+  extraLinks: string;
 }
