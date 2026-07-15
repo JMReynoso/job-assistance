@@ -31,6 +31,10 @@ services:
     volumes:
       - ../api:/app
       - /app/node_modules
+      # Keeps compiled output in a fast container volume off the Windows bind
+      # mount. Because this is a mountpoint, nest-cli.json must keep
+      # deleteOutDir:false — otherwise `nest start --watch` errors trying to
+      # rmdir it (EBUSY).
       - /app/dist
     depends_on:
       - postgres

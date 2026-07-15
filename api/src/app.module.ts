@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
+import { dataSourceOptions } from './database/data-source';
 import { ExampleModule } from './entities/example/example.module';
 
 @Module({
@@ -9,23 +10,11 @@ import { ExampleModule } from './entities/example/example.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres' as const,
-        host: config.get<string>('DB_HOST', 'localhost'),
-        port: config.get<number>('DB_PORT', 5432),
-        username: config.get<string>('DB_USERNAME', 'postgres'),
-        password: config.get<string>('DB_PASSWORD', 'postgres'),
-        database: config.get<string>('DB_NAME', 'job_assistance'),
-        autoLoadEntities: true,
-        // Fine for local development; use migrations instead once this API
-        // has real data you can't afford to have TypeORM re-shape for you.
-        synchronize:
-          config.get<string>('NODE_ENV', 'development') !== 'production',
-      }),
-    }),
+    // Same options object the TypeORM CLI uses (see database/data-source.ts),
+    // so the running app and `migration:generate` can never drift apart.
+    // Schema changes go through migrations (run on startup in main.ts), not
+    // `synchronize`.
+    TypeOrmModule.forRoot(dataSourceOptions),
     ExampleModule,
   ],
   controllers: [AppController],
