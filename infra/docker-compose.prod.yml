@@ -1,4 +1,4 @@
-name: job-assistance-prod
+name: job-assistant
 
 services:
   web:
@@ -47,4 +47,14 @@ volumes:
   # Named volume, independent of the container lifecycle — data survives
   # `docker compose down` / rebuilds / new images, not just container restarts.
   # Only `docker compose down -v` (or deleting the volume directly) wipes it.
+  #
+  # Explicit name (rather than the project-prefixed default) so dev and prod
+  # never collide even though they now share the "job-assistant" project
+  # name — this stays the *only* thing keeping their data apart if they're
+  # ever run on the same Docker host.
   postgres-data:
+    name: job-assistant-prod-postgres-data
+
+networks:
+  default:
+    name: job-assistant-prod
