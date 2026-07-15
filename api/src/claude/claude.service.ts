@@ -36,10 +36,10 @@ export class ClaudeService {
   ) {}
 
   /**
-   * Drafts a cover letter from a resume + job posting. This is an example of
+   * Drafts a tailored resume from a master resume + job posting. This is an example of
    * the shape a Claude-backed method takes — copy it for real use cases.
    */
-  async draftCoverLetter(resume: string, jobPosting: string, companyWebsite: string, otherURLAboutCompany?: string[]): Promise<string> {
+  async draftResume(masterResume: string, jobPosting: string, companyWebsite: string, otherURLAboutCompany?: string[]): Promise<string> {
     try {
       const response = await this.anthropic.messages.create({
         model: 'claude-opus-4-8',
@@ -57,7 +57,7 @@ export class ClaudeService {
         messages: [
           {
             role: 'user',
-            content: `RESUME:\n${resume}\n\n
+            content: `MASTER RESUME:\n${masterResume}\n\n
               JOB POSTING:\n${jobPosting}\n\n
               COMPANY WEBSITE:\n${companyWebsite}\n\n
               Other URLs about the company:\n${otherURLAboutCompany?.join('\n') || 'None'}\n\n
@@ -87,4 +87,8 @@ export class ClaudeService {
     Summarize the company's tech stack, engineering culture, mission statement 
     and what they do, and recent products all in 5 bullet points
    */
+
+  //TODO: create outreach message based on research
+
+  //TODO: create follow-up message based on research
 }
