@@ -68,8 +68,9 @@ describe("downloadTailoredResume", () => {
       buildJob({
         companyName: "Willow & Oak",
         messageStyle: "Friendly",
-        contactName: "Dana Reyes",
-        contactEmail: "dana@willowoak.co",
+        contacts: [
+          { id: "c1", name: "Dana Reyes", role: "Recruiter", email: "dana@willowoak.co", linkedin: "" },
+        ],
         notes: "Waiting on a phone screen.",
       }),
     );
@@ -81,7 +82,7 @@ describe("downloadTailoredResume", () => {
   });
 
   it("falls back to placeholders when contact and notes are blank", () => {
-    downloadTailoredResume(buildJob({ contactName: "", contactEmail: "", notes: "" }));
+    downloadTailoredResume(buildJob({ contacts: [], notes: "" }));
 
     expect(capturedBlobText).toContain("Contact: —");
     expect(capturedBlobText).toContain("(none)");

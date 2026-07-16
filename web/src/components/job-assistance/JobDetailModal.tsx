@@ -3,6 +3,7 @@
 import type { Job } from "@/lib/job-assistance/types";
 import { MESSAGE_STYLE_OPTIONS, OPEN_BUTTON_BG, OPEN_BUTTON_COLOR, STATUS_OPTIONS } from "@/lib/job-assistance/constants";
 import { isStale } from "@/lib/job-assistance/date";
+import ContactsTable from "./ContactsTable";
 import FormField from "./FormField";
 import SelectField from "./SelectField";
 import TextAreaField from "./TextAreaField";
@@ -90,32 +91,18 @@ export default function JobDetailModal({
               onChange={(v) => onFieldChange("messageStyle", v as Job["messageStyle"])}
             />
             <FormField
-              label="Referral name"
-              placeholder="Who referred you?"
-              value={draft.referralName}
-              onChange={(v) => onFieldChange("referralName", v)}
-            />
-            <FormField label="Contact name" value={draft.contactName} onChange={(v) => onFieldChange("contactName", v)} />
-            <FormField
-              label="Contact email"
-              type="email"
-              placeholder="name@company.com"
-              value={draft.contactEmail}
-              onChange={(v) => onFieldChange("contactEmail", v)}
-            />
-            <FormField
-              label="Contact LinkedIn"
-              placeholder="linkedin.com/in/…"
-              value={draft.contactLinkedIn}
-              onChange={(v) => onFieldChange("contactLinkedIn", v)}
-            />
-            <FormField
               label="Company URL"
               placeholder="https://company.com"
               value={draft.companyUrl}
               onChange={(v) => onFieldChange("companyUrl", v)}
             />
           </div>
+
+          <ContactsTable
+            className="mt-5"
+            contacts={draft.contacts}
+            onChange={(contacts) => onFieldChange("contacts", contacts)}
+          />
 
           <TextAreaField
             className="mt-5"

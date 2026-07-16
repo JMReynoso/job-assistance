@@ -9,6 +9,14 @@ export type JobStatus =
 
 export type MessageStyle = "Friendly" | "Formal" | "Casual" | "Direct" | "Enthusiastic";
 
+export interface JobContact {
+  id: string;
+  name: string;
+  role: string;
+  email: string;
+  linkedin: string;
+}
+
 export interface Job {
   id: string;
   companyName: string;
@@ -16,11 +24,8 @@ export interface Job {
   dateApplied: string;
   dateLastContacted: string;
   messageStyle: MessageStyle;
-  contactName: string;
-  contactEmail: string;
-  contactLinkedIn: string;
+  contacts: JobContact[];
   companyUrl: string;
-  referralName: string;
   jobPostingUrl: string;
   companyLinkedInUrl: string;
   extraLinks: string;

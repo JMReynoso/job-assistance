@@ -51,11 +51,16 @@ describe("JobDetailModal", () => {
   it("populates every field from the draft", () => {
     const draft = buildJob({
       companyName: "Willow & Oak",
-      contactName: "Dana Reyes",
-      contactEmail: "dana@willowoak.co",
-      contactLinkedIn: "linkedin.com/in/danareyes",
+      contacts: [
+        {
+          id: "c1",
+          name: "Dana Reyes",
+          role: "Recruiter",
+          email: "dana@willowoak.co",
+          linkedin: "linkedin.com/in/danareyes",
+        },
+      ],
       companyUrl: "https://willowoak.co",
-      referralName: "Priya N.",
       notes: "Reached out after the info session.",
       recruiterMessage: "Hi Dana, following up on...",
       followupMessage: "Just checking in...",
@@ -74,13 +79,41 @@ describe("JobDetailModal", () => {
     );
 
     expect(screen.getByDisplayValue("Dana Reyes")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Recruiter")).toBeInTheDocument();
     expect(screen.getByDisplayValue("dana@willowoak.co")).toBeInTheDocument();
     expect(screen.getByDisplayValue("linkedin.com/in/danareyes")).toBeInTheDocument();
     expect(screen.getByDisplayValue("https://willowoak.co")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Priya N.")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Reached out after the info session.")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Hi Dana, following up on...")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Just checking in...")).toBeInTheDocument();
+  });
+
+  it("adds and removes rows in the contacts table", async () => {
+    const user = userEvent.setup({ delay: null });
+    const onFieldChange = jest.fn();
+    render(
+      <JobDetailModal
+        draft={buildJob({
+          contacts: [{ id: "c1", name: "Dana Reyes", role: "Recruiter", email: "", linkedin: "" }],
+        })}
+        dirty={false}
+        onFieldChange={onFieldChange}
+        onClose={jest.fn()}
+        onTrash={jest.fn()}
+        onSave={jest.fn()}
+        onGetResume={jest.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Add contact/i }));
+    expect(onFieldChange).toHaveBeenCalledWith("contacts", [
+      expect.objectContaining({ name: "Dana Reyes" }),
+      expect.objectContaining({ name: "", role: "", email: "", linkedin: "" }),
+    ]);
+
+    onFieldChange.mockClear();
+    await user.click(screen.getByRole("button", { name: /Remove Dana Reyes/i }));
+    expect(onFieldChange).toHaveBeenCalledWith("contacts", []);
   });
 
   it("reports edits to a text field", () => {

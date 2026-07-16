@@ -10,12 +10,13 @@ function slugify(name: string): string {
  */
 export function downloadTailoredResume(draft: Job) {
   const name = draft.companyName.trim() || "job";
+  const primaryContact = draft.contacts[0];
   const lines = [
     "TAILORED RESUME",
     "================",
     `Target role: ${name}`,
     `Message style: ${draft.messageStyle || "—"}`,
-    `Contact: ${draft.contactName || "—"}${draft.contactEmail ? ` <${draft.contactEmail}>` : ""}`,
+    `Contact: ${primaryContact?.name || "—"}${primaryContact?.email ? ` <${primaryContact.email}>` : ""}`,
     "",
     "NOTES",
     "-----",

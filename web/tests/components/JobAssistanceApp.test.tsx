@@ -106,7 +106,8 @@ describe("JobAssistanceApp", () => {
     const dialog = await openJob(user, "Fern & Field");
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));
 
-    const table = screen.getByRole("table");
+    // The open job modal has its own contacts table, so scope to the main tracker table.
+    const table = screen.getAllByRole("table").find((t) => !t.closest('[role="dialog"]'))!;
     let confirmDelete = screen.getByRole("dialog", { name: "Delete this job?" });
     await user.click(within(confirmDelete).getByRole("button", { name: "Cancel" }));
     expect(within(table).getByText("Fern & Field")).toBeInTheDocument();
