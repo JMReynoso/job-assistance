@@ -33,7 +33,7 @@ export function useJobTracker() {
     setHome((prev) => ({ ...prev, [field]: value }));
   }
 
-  function addToTracker() {
+  function addToTracker(): string {
     const name = home.companyName.trim() || "Untitled role";
     const newJob: Job = {
       id: createId(),
@@ -53,6 +53,11 @@ export function useJobTracker() {
     };
     setJobs((prev) => [newJob, ...prev]);
     setHome(EMPTY_HOME_FORM);
+    return newJob.id;
+  }
+
+  function removeJob(id: string) {
+    setJobs((prev) => prev.filter((j) => j.id !== id));
   }
 
   function setRowStatus(id: string, status: JobStatus) {
@@ -107,6 +112,7 @@ export function useJobTracker() {
     addToTracker,
 
     jobs,
+    removeJob,
     setRowStatus,
 
     hoveredId,

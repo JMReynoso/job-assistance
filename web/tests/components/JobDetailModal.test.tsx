@@ -88,6 +88,25 @@ describe("JobDetailModal", () => {
     expect(screen.getByDisplayValue("Just checking in...")).toBeInTheDocument();
   });
 
+  it("shows the contact role as a dropdown of preset options", () => {
+    render(
+      <JobDetailModal
+        draft={buildJob()}
+        dirty={false}
+        onFieldChange={jest.fn()}
+        onClose={jest.fn()}
+        onTrash={jest.fn()}
+        onSave={jest.fn()}
+        onGetResume={jest.fn()}
+      />,
+    );
+
+    const roleSelect = screen.getByDisplayValue("Recruiter");
+    expect(roleSelect.tagName).toBe("SELECT");
+    expect(screen.getByRole("option", { name: "Hiring Manager" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Referral" })).toBeInTheDocument();
+  });
+
   it("adds and removes rows in the contacts table", async () => {
     const user = userEvent.setup({ delay: null });
     const onFieldChange = jest.fn();

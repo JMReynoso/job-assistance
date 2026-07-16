@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import JobAssistanceApp from "@/components/job-assistance/JobAssistanceApp";
 
@@ -18,15 +18,71 @@ async function openJob(user: ReturnType<typeof userEvent.setup>, companyName: st
 
 describe("JobAssistanceApp", () => {
   it("adds a job through the quick-add form and lists it in the tracker", async () => {
-    const user = userEvent.setup();
+    jest.useFakeTimers();
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     render(<JobAssistanceApp />);
 
     await user.type(screen.getByPlaceholderText("e.g. Willow & Oak"), "Acme Robotics");
     await user.click(screen.getByRole("button", { name: "Add to tracker" }));
 
-    const newRow = screen.getByText("Acme Robotics").closest("tr")!;
+    // Adding opens the setup-progress modal…
+    expect(screen.getByRole("dialog", { name: /Acme Robotics/ })).toBeInTheDocument();
+
+    // …and drops the row into the tracker table straight away.
+    const newRow = within(screen.getByRole("table")).getByText("Acme Robotics").closest("tr")!;
     expect(within(newRow).getByRole("combobox")).toHaveValue("Interested");
     expect(screen.getByPlaceholderText("e.g. Willow & Oak")).toHaveValue("");
+
+    jest.useRealTimers();
+  });
+
+  it("cancels setup from the progress modal, deleting the just-added job", async () => {
+    jest.useFakeTimers();
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    render(<JobAssistanceApp />);
+
+    await user.type(screen.getByPlaceholderText("e.g. Willow & Oak"), "Acme Robotics");
+    await user.click(screen.getByRole("button", { name: "Add to tracker" }));
+
+    const progressModal = screen.getByRole("dialog", { name: /Acme Robotics/ });
+    await user.click(within(progressModal).getByRole("button", { name: "Close" }));
+
+    const confirm = screen.getByRole("dialog", { name: "Cancel setup?" });
+    await user.click(within(confirm).getByRole("button", { name: /Cancel & delete/ }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("table")).queryByText("Acme Robotics")).not.toBeInTheDocument();
+
+    jest.useRealTimers();
+  });
+
+  it("recovers from a failed stage via retry, then finishes setup", async () => {
+    jest.useFakeTimers();
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    render(<JobAssistanceApp />);
+
+    await user.type(screen.getByPlaceholderText("e.g. Willow & Oak"), "Acme Robotics");
+    await user.click(screen.getByRole("button", { name: "Add to tracker" }));
+
+    // Run until the (demo) contact-lookup stage fails.
+    act(() => {
+      jest.advanceTimersByTime(6 * 1400);
+    });
+    const progressModal = screen.getByRole("dialog", { name: /Acme Robotics/ });
+    expect(within(progressModal).getByText(/Find hiring manager failed/)).toBeInTheDocument();
+
+    // Retry re-runs from the failed stage through to completion.
+    await user.click(within(progressModal).getByRole("button", { name: /Try again/ }));
+    act(() => {
+      jest.advanceTimersByTime(3 * 1400);
+    });
+
+    await user.click(within(progressModal).getByRole("button", { name: "Done" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("table")).getByText("Acme Robotics")).toBeInTheDocument();
+
+    jest.useRealTimers();
   });
 
   it("changes a job's status directly from the table, with no window open", async () => {

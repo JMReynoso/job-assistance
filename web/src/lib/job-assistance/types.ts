@@ -9,6 +9,17 @@ export type JobStatus =
 
 export type MessageStyle = "Friendly" | "Formal" | "Casual" | "Direct" | "Enthusiastic";
 
+/** One step of the "Add to tracker" generation pipeline. */
+export type JobStageKey = "created" | "research" | "tailoring" | "contact" | "ready";
+
+/** Status of a single pipeline stage, driven by the backend (200/201 → done). */
+export type JobStageStatus = "pending" | "running" | "done" | "failed";
+
+export interface JobStage {
+  key: JobStageKey;
+  status: JobStageStatus;
+}
+
 export interface JobContact {
   id: string;
   name: string;

@@ -61,13 +61,36 @@ export default function ContactsTable({ contacts, onChange, className }: Contact
                 <tr key={contact.id} className="border-t border-row-border">
                   {CONTACT_COLUMNS.map((col) => (
                     <td key={col.key} className="border-l border-row-border p-0 first:border-l-0">
-                      <input
-                        type={col.type ?? "text"}
-                        value={contact[col.key]}
-                        onChange={(e) => updateCell(contact.id, col.key, e.target.value)}
-                        placeholder={col.placeholder}
-                        className="w-full min-w-[130px] border-0 bg-transparent px-3 py-2.5 text-[13px] text-ink outline-none focus:bg-white focus:ring-1 focus:ring-inset focus:ring-sage"
-                      />
+                      {col.type === "select" ? (
+                        <div className="relative">
+                          <select
+                            value={contact[col.key]}
+                            onChange={(e) => updateCell(contact.id, col.key, e.target.value)}
+                            className="w-full min-w-[130px] cursor-pointer appearance-none border-0 bg-transparent px-3 py-2.5 pr-7 text-[13px] text-ink outline-none focus:bg-white focus:ring-1 focus:ring-inset focus:ring-sage"
+                          >
+                            <option value="">{col.placeholder ?? "Select…"}</option>
+                            {col.options?.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt}
+                              </option>
+                            ))}
+                          </select>
+                          <span
+                            aria-hidden
+                            className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-faint"
+                          >
+                            ▾
+                          </span>
+                        </div>
+                      ) : (
+                        <input
+                          type={col.type ?? "text"}
+                          value={contact[col.key]}
+                          onChange={(e) => updateCell(contact.id, col.key, e.target.value)}
+                          placeholder={col.placeholder}
+                          className="w-full min-w-[130px] border-0 bg-transparent px-3 py-2.5 text-[13px] text-ink outline-none focus:bg-white focus:ring-1 focus:ring-inset focus:ring-sage"
+                        />
+                      )}
                     </td>
                   ))}
                   <td className="border-l border-row-border p-0 text-center align-middle">
