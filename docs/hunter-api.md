@@ -13,7 +13,7 @@ Hunter.io finds **work email addresses**. Give it a company's website domain (li
 We use it to find **recruiters and hiring managers** to reach out to after researching a company.
 
 ```
-Your controller  →  your service  →  HunterService  →  Hunter.io (in the cloud)
+Your controller  →  your service  →  HunterService  →  HunterClient  →  Hunter.io (in the cloud)
                                           ▲
                               this is the only part
                               that knows about Hunter
@@ -28,7 +28,7 @@ The important idea: **only [`HunterService`](../api/src/hunter/hunter.service.ts
 | Piece | File | What it is (plain terms) |
 | --- | --- | --- |
 | **API key** | `HUNTER_API_KEY` (env var) | Your password to Hunter. Every request includes it. Kept out of the code. |
-| **`fetch`** | built into Node | Makes the actual internet call. No extra library needed. |
+| **The client provider** | [hunter.provider.ts](../api/src/hunter/hunter.provider.ts) | Builds **one** HTTP client (a thin `fetch` wrapper, since there's no npm SDK) from your API key, in a single place — the same shape as Claude's provider. |
 | **HunterService** | [hunter.service.ts](../api/src/hunter/hunter.service.ts) | Your friendly wrapper. Has two methods: `domainSearch(...)` and `findEmail(...)`. |
 | **HunterModule** | [hunter.module.ts](../api/src/hunter/hunter.module.ts) | A NestJS bundle so other parts of the app can use `HunterService`. |
 
@@ -226,7 +226,7 @@ if (!found.email) {
 
 ## Good to know / gotchas
 
-- **`HunterModule` is deliberately *not* loaded app-wide.** The service needs `HUNTER_API_KEY` the moment the module loads, so if it were always on, the app would crash on startup without a key. Instead you add `imports: [HunterModule]` only to the feature modules that use it.
+- **`HunterModule` is deliberately *not* loaded app-wide.** The client provider needs `HUNTER_API_KEY` the moment the module loads, so if it were always on, the app would crash on startup without a key. Instead you add `imports: [HunterModule]` only to the feature modules that use it.
 - **The API key never appears in logs.** `HunterService` adds it to the request URL last and never logs the full URL.
 - **Respect people's data.** Only use found emails for legitimate, relevant outreach — and follow anti-spam rules (e.g. CAN-SPAM/GDPR) where they apply.
 - **Production gets the key differently.** The prod image has no `api/.env`, so the key comes through the container environment instead. Declare `HUNTER_API_KEY` in your prod compose/deploy config and supply its value at deploy time.
@@ -237,6 +237,7 @@ if (!found.email) {
 
 | Path | What it is |
 | --- | --- |
+| [api/src/hunter/hunter.provider.ts](../api/src/hunter/hunter.provider.ts) | Builds the Hunter HTTP client from the API key (token + `fetch` wrapper) |
 | [api/src/hunter/hunter.service.ts](../api/src/hunter/hunter.service.ts) | The wrapper you call (`HunterService`) — add methods here |
 | [api/src/hunter/hunter.module.ts](../api/src/hunter/hunter.module.ts) | The NestJS module to import into your feature modules |
 | [api/.env](../api/.env) | Your local config, including `HUNTER_API_KEY` (not committed to git) |
