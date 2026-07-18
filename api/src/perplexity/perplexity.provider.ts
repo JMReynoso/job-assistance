@@ -31,10 +31,12 @@ export class PerplexityClient {
 
   /**
    * POSTs a JSON body to the given path and returns the parsed response.
-   * Throws PerplexityApiError on a non-2xx reply; lets network errors bubble so
-   * the service can tell "API said no" from "couldn't reach the API" apart.
+   * Throws PerplexityApiError on a non-2xx reply; lets network errors (and the
+   * TimeoutError from `timeoutMs`) bubble so the service can tell "API said no"
+   * from "couldn't reach the API" apart. `timeoutMs` matters for the slow
+   * sonar-deep-research model, whose calls can run for minutes.
    */
-  async post<T>(path: string, body: unknown): Promise<T> {
+  async post<T>(path: string, body: unknown, timeoutMs?: number): Promise<T> {
     const response = await fetch(`${this.baseUrl}/${path}`, {
       method: 'POST',
       headers: {
@@ -42,6 +44,7 @@ export class PerplexityClient {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
+      signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
     });
 
     if (!response.ok) {
