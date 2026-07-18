@@ -46,7 +46,7 @@ export class Job {
 
   @ApiProperty({ example: 'Sample widget' })
   @Column({ type: 'text' })
-  contacts: Contact[];
+  contacts: Contacts[];
 
   @ApiProperty({ example: 'Sample widget' })
   @Column({ type: 'text' })
