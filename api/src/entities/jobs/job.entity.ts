@@ -44,18 +44,6 @@ export class Job {
   @Column({ type: 'text' })
   status: Status;
 
-  @ApiProperty({ example: 'Sample widget' })
-  @Column({ type: 'text' })
-  contacts: Contacts[];
-
-  @ApiProperty({ example: 'Sample widget' })
-  @Column({ type: 'text' })
-  companyResearch: CompanyResearch;
-
-  @ApiProperty({ example: 'Sample widget' })
-  @Column({ type: 'text' })
-  generatedContent: GeneratedContent[];
-
   @ApiProperty()
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
