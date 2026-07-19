@@ -39,9 +39,7 @@ export class CompanyResearchService {
             createCompanyResearchDto.jobPostingUrl,
             createCompanyResearchDto.companyPageUrl,
             createCompanyResearchDto.companyLinkedInUrl,
-            ...(createCompanyResearchDto.extraLinks
-                ? createCompanyResearchDto.extraLinks.split('\n')
-                : []),
+            ...(createCompanyResearchDto.extraLinks ?? []),
         ]
             .map((url) => url.trim())
             .filter((url): url is string => !!url);
