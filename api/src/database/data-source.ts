@@ -13,16 +13,16 @@ import { DataSource, DataSourceOptions } from 'typeorm';
  * ts-node (CLI, tests) or compiled JavaScript from dist/ (`nest start`, prod).
  */
 export const dataSourceOptions: DataSourceOptions = {
-  type: 'postgres',
-  host: process.env.DB_HOST ?? 'localhost',
-  port: Number(process.env.DB_PORT ?? 5432),
-  username: process.env.DB_USERNAME ?? 'postgres',
-  password: process.env.DB_PASSWORD ?? 'postgres',
-  database: process.env.DB_NAME ?? 'job_assistance',
-  entities: [__dirname + '/../**/*.entity.{ts,js}'],
-  migrations: [__dirname + '/migrations/*.{ts,js}'],
-  // Migrations own the schema now — never let TypeORM auto-alter tables.
-  synchronize: false,
+    type: 'postgres',
+    host: process.env.DB_HOST ?? 'localhost',
+    port: Number(process.env.DB_PORT ?? 5432),
+    username: process.env.DB_USERNAME ?? 'postgres',
+    password: process.env.DB_PASSWORD ?? 'postgres',
+    database: process.env.DB_NAME ?? 'job_assistance',
+    entities: [__dirname + '/../**/*.entity.{ts,js}'],
+    migrations: [__dirname + '/migrations/*.{ts,js}'],
+    // Migrations own the schema now — never let TypeORM auto-alter tables.
+    synchronize: false,
 };
 
 const AppDataSource = new DataSource(dataSourceOptions);
