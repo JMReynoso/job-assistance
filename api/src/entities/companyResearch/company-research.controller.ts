@@ -1,7 +1,6 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
 import { CompanyResearchService } from './company-research.service';
 import { CreateCompanyResearchDto } from './dto/create-company-research.dto';
-import { UpdateCompanyResearchDto } from './dto/update-company-research.dto';
 
 @Controller('company-research')
 export class CompanyResearchController {
@@ -20,11 +19,6 @@ export class CompanyResearchController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.companyResearchService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateCompanyResearchDto: UpdateCompanyResearchDto) {
-    return this.companyResearchService.update(+id, updateCompanyResearchDto);
   }
 
   @Delete(':id')

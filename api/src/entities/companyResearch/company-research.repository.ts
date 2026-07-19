@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateCompanyResearchDto } from './dto/create-company-research.dto';
-import { UpdateCompanyResearchDto } from './dto/update-company-research.dto';
 import { CompanyResearch } from './entities/company-research.entity';
+import { CompanyResearchResult } from '../../perplexity/perplexity.service';
 
 /**
  * Everything that touches Postgres for this entity lives here. The service
@@ -26,19 +26,13 @@ export class CompanyResearchRepository {
     return this.repository.findOneBy({ id });
   }
 
-  create(dto: CreateCompanyResearchDto): Promise<CompanyResearch> {
-    const companyResearch = this.repository.create(dto);
+  create(dto: CreateCompanyResearchDto, perplexityResearch: CompanyResearchResult): Promise<CompanyResearch> {
+    const newCompanyResearch = this.repository.create({ 
+      jobId: dto.jobId,
+      company: dto.companyName, 
+      ...perplexityResearch });
 
-    return this.repository.save(companyResearch);
-  }
-
-  async update(
-    id: number,
-    dto: UpdateCompanyResearchDto,
-  ): Promise<CompanyResearch | null> {
-    await this.repository.update(id, dto);
-
-    return this.findById(id);
+    return this.repository.save(newCompanyResearch);
   }
 
   async delete(id: number): Promise<boolean> {

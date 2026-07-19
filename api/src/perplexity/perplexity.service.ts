@@ -45,6 +45,12 @@ export interface PerplexitySource {
 export interface RankedSource extends PerplexitySource {
   /** How many of the angles surfaced this URL (1–3). Higher = more central. */
   hits: number;
+  /**
+   * True when this URL is one of the caller's `verifyUrls` — a trusted anchor
+   * (company site, LinkedIn, job posting) they passed in. Set whether or not an
+   * angle independently cited it, so consumers can weight these higher.
+   */
+  verified?: boolean;
 }
 
 /** The result of researching one company across all angles. */
@@ -178,8 +184,14 @@ export class PerplexityService {
   ): Promise<CompanyResearchResult> {
     const system = options.system ?? RESEARCHER_SYSTEM;
 
+    // De-dupe the trusted anchors up front so no angle is ever asked to crawl
+    // the same page twice, then thread the cleaned list through every angle and
+    // the source merge so both see the exact same set.
+    const verifyUrls = this.dedupeUrls(options.verifyUrls);
+    const opts: CompanyResearchOptions = { ...options, verifyUrls };
+
     const settled = await Promise.allSettled(
-      RESEARCH_ANGLES.map((angle) => this.runAngle(company, angle, system, options)),
+      RESEARCH_ANGLES.map((angle) => this.runAngle(company, angle, system, opts)),
     );
 
     const fulfilled = settled
@@ -206,7 +218,7 @@ export class PerplexityService {
       throw this.toServiceError(firstRejection?.reason);
     }
 
-    const sources = this.mergeSources(fulfilled);
+    const sources = this.mergeSources(fulfilled, verifyUrls);
     const usage = this.aggregateUsage(fulfilled);
 
     this.logger.log(
@@ -275,8 +287,16 @@ export class PerplexityService {
    * Merges every angle's sources into one list: de-dupes by normalized URL,
    * counts how many angles cited each (`hits`), and ranks by hits then by the
    * best position any angle gave it.
+   *
+   * Any `verifyUrls` the caller passed are folded in too: if an angle already
+   * cited one it's just flagged `verified`; otherwise it's appended as a
+   * `hits: 0` source so the trusted anchor is always present in the output
+   * (and in the derived `urls`), even when no angle happened to surface it.
    */
-  private mergeSources(results: AngleResult[]): RankedSource[] {
+  private mergeSources(
+    results: AngleResult[],
+    verifyUrls: string[] = [],
+  ): RankedSource[] {
     const merged = new Map<string, RankedSource>();
     const bestPos = new Map<string, number>();
 
@@ -295,12 +315,60 @@ export class PerplexityService {
       });
     }
 
+    for (const url of verifyUrls) {
+      const key = this.dedupeKey(url);
+      const existing = merged.get(key);
+      if (existing) {
+        existing.verified = true;
+      } else {
+        merged.set(key, {
+          title: this.hostnameOf(url),
+          url,
+          date: null,
+          last_updated: null,
+          hits: 0,
+          verified: true,
+        });
+        // No angle cited it, so it has no natural position — sort it last
+        // among any hits:0 ties.
+        bestPos.set(key, Number.MAX_SAFE_INTEGER);
+      }
+    }
+
     return [...merged.entries()]
       .sort(
         ([ka, a], [kb, b]) =>
           b.hits - a.hits || (bestPos.get(ka) ?? 0) - (bestPos.get(kb) ?? 0),
       )
       .map(([, source]) => source);
+  }
+
+  /**
+   * De-dupes a list of URLs by normalized identity (same page = same crawl),
+   * preserving order and the original URL string of the first occurrence.
+   * Blank entries are dropped. Uses the same {@link dedupeKey} as the source
+   * merge, so '/about', '/about/' and '/about#team' collapse to one crawl.
+   */
+  private dedupeUrls(urls: string[] = []): string[] {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const url of urls) {
+      if (!url?.trim()) continue;
+      const key = this.dedupeKey(url);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(url);
+    }
+    return out;
+  }
+
+  /** Best-effort display title for a bare URL: its hostname, else the URL. */
+  private hostnameOf(url: string): string {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return url.trim();
+    }
   }
 
   /**
