@@ -1,0 +1,44 @@
+{
+  // Debug configurations for the Job Assistance API.
+  // Plain-language walkthrough: docs/debugging.md
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // One click: compiles + runs the API under the debugger, in watch mode.
+      // Set breakpoints in any src/**/*.ts and hit an endpoint to pause there.
+      "name": "Debug API",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start:debug"],
+      "console": "integratedTerminal",
+      // nest spawns the app as a child process; attach to it too.
+      "autoAttachChildProcesses": true,
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      // Use when you've already started `npm run start:debug` in a terminal.
+      // `restart` re-attaches automatically after watch mode reloads.
+      "name": "Debug API: attach",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "restart": true,
+      "cwd": "${workspaceFolder}/api",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      // Debug the test file you currently have open (open the *.spec.ts, then F5).
+      "name": "Debug API: current Jest test",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "test", "--", "--runInBand", "${fileBasenameNoExtension}"],
+      "console": "integratedTerminal",
+      "autoAttachChildProcesses": true,
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
+}

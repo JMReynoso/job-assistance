@@ -50,6 +50,19 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
+## Debugging
+
+To pause the running API on a line and step through it in VS Code, open the
+**Run and Debug** panel (`Ctrl+Shift+D`), pick **"Debug API"**, and press `F5`.
+Full walkthrough in plain language: [docs/debugging.md](../docs/debugging.md).
+
+You can also start it under the debugger from the terminal:
+
+```bash
+# starts with --inspect on port 9229, in watch mode
+$ npm run start:debug
+```
+
 ## Run tests
 
 ```bash
