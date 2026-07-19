@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { CreateExampleDto } from './dto/create-job.dto';
-import { UpdateExampleDto } from './dto/update-job.dto';
+import { CreateJobDto } from './dto/create-job.dto';
+import { UpdateJobDto } from './dto/update-job.dto';
 import { Job } from './job.entity';
 import { JobsRepository } from './jobs.repository';
 
@@ -21,7 +21,7 @@ export class JobsService {
     }
 
     //TODO: implement
-    create(dto: CreateExampleDto): Promise<Job> {
+    create(dto: CreateJobDto): Promise<Job> {
         // create dto
 
         // call perplexity.ai API calls
@@ -42,7 +42,7 @@ export class JobsService {
         return this.jobsRepository.create(dto);
     }
 
-    async update(id: number, dto: UpdateExampleDto): Promise<Job> {
+    async update(id: number, dto: UpdateJobDto): Promise<Job> {
         await this.findOne(id); // 404s before attempting the update
         const updated = await this.jobsRepository.update(id, dto);
         if (!updated) {

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
 
 export class CreateJobDto {
     @ApiProperty({
@@ -15,7 +15,7 @@ export class CreateJobDto {
         example: 'Sample widget',
         description: 'Human-readable name',
     })
-    @IsURL()
+    @IsUrl()
     @IsNotEmpty()
     jobPostingURL: string;
 
@@ -23,7 +23,7 @@ export class CreateJobDto {
         example: 'Sample widget',
         description: 'Human-readable name',
     })
-    @IsURL()
+    @IsUrl()
     @IsNotEmpty()
     companyPage: string;
 
@@ -31,7 +31,7 @@ export class CreateJobDto {
         example: 'Sample widget',
         description: 'Human-readable name',
     })
-    @IsURL()
+    @IsUrl()
     @IsNotEmpty()
     companyLinkedIn: string;
 
@@ -39,7 +39,7 @@ export class CreateJobDto {
         example: 'Sample widget',
         description: 'Human-readable name',
     })
-    @IsURL()
+    @IsUrl()
     @IsOptional()
     extraURLs?: string;
 }
