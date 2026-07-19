@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateCompanyResearchDto } from './dto/create-company-research.dto';
 import { CompanyResearch } from './entities/company-research.entity';
 import { CompanyResearchRepository } from './company-research.repository';
-import { CompanyResearchResult, research } from '../../perplexity/perplexity.service';
+import { CompanyResearchResult, research } from '../../externalAPIs/perplexity/perplexity.service';
 
 @Injectable()
 export class CompanyResearchService {

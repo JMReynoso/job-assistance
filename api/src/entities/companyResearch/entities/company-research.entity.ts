@@ -9,7 +9,7 @@ import {
 import type {
   CompanyResearchResult,
   RankedSource,
-} from '../../../perplexity/perplexity.service';
+} from '../../../externalAPIs/perplexity/perplexity.service';
 
 /**
  * A persisted snapshot of one Perplexity company-research run.
