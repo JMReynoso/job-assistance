@@ -13,34 +13,34 @@ import { GeneratedContent } from './entities/generated-content.entity';
  */
 @Injectable()
 export class GeneratedContentRepository {
-  constructor(
-    @InjectRepository(GeneratedContent)
-    private readonly repository: Repository<GeneratedContent>,
-  ) {}
+    constructor(
+        @InjectRepository(GeneratedContent)
+        private readonly repository: Repository<GeneratedContent>,
+    ) {}
 
-  findAll(): Promise<GeneratedContent[]> {
-    return this.repository.find({ order: { id: 'ASC' } });
-  }
+    findAll(): Promise<GeneratedContent[]> {
+        return this.repository.find({ order: { id: 'ASC' } });
+    }
 
-  findById(id: number): Promise<GeneratedContent | null> {
-    return this.repository.findOneBy({ id });
-  }
+    findById(id: number): Promise<GeneratedContent | null> {
+        return this.repository.findOneBy({ id });
+    }
 
-  create(dto: CreateGeneratedContentDto): Promise<GeneratedContent> {
-    const generatedContent = this.repository.create(dto);
-    return this.repository.save(generatedContent);
-  }
+    create(dto: CreateGeneratedContentDto): Promise<GeneratedContent> {
+        const generatedContent = this.repository.create(dto);
+        return this.repository.save(generatedContent);
+    }
 
-  async update(
-    id: number,
-    dto: UpdateGeneratedContentDto,
-  ): Promise<GeneratedContent | null> {
-    await this.repository.update(id, dto);
-    return this.findById(id);
-  }
+    async update(
+        id: number,
+        dto: UpdateGeneratedContentDto,
+    ): Promise<GeneratedContent | null> {
+        await this.repository.update(id, dto);
+        return this.findById(id);
+    }
 
-  async delete(id: number): Promise<boolean> {
-    const result = await this.repository.delete(id);
-    return (result.affected ?? 0) > 0;
-  }
+    async delete(id: number): Promise<boolean> {
+        const result = await this.repository.delete(id);
+        return (result.affected ?? 0) > 0;
+    }
 }

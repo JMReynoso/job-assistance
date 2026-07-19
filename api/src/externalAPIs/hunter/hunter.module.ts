@@ -10,7 +10,7 @@ import { HunterService } from './hunter.service';
  * `imports: [HunterModule]` to that feature module.
  */
 @Module({
-  providers: [hunterProvider, HunterService],
-  exports: [HunterService],
+    providers: [hunterProvider, HunterService],
+    exports: [HunterService],
 })
 export class HunterModule {}

@@ -1,14 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
+    Column,
+    CreateDateColumn,
+    Entity,
+    PrimaryGeneratedColumn,
+    UpdateDateColumn,
 } from 'typeorm';
 import type {
-  CompanyResearchResult,
-  RankedSource,
+    CompanyResearchResult,
+    RankedSource,
 } from '../../../externalAPIs/perplexity/perplexity.service';
 
 /**
@@ -22,73 +22,78 @@ import type {
  */
 @Entity({ name: 'company_research' })
 export class CompanyResearch {
-  @ApiProperty({ example: 1, description: 'Auto-generated primary key' })
-  @PrimaryGeneratedColumn()
-  id: number;
+    @ApiProperty({ example: 1, description: 'Auto-generated primary key' })
+    @PrimaryGeneratedColumn()
+    id: number;
 
-  @ApiProperty({ example: 1, description: 'Auto-generated foreign key' })
-  @PrimaryGeneratedColumn()
-  jobId: number;
+    @ApiProperty({
+        example: 1,
+        description: 'FK to the job this research belongs to',
+    })
+    @Column({ type: 'int' })
+    jobId: number;
 
-  @ApiProperty({
-    example: 'Acme Corp',
-    description: 'The company this research is about (the `research()` argument).',
-  })
-  @Column({ type: 'text' })
-  company: string;
+    @ApiProperty({
+        example: 'Acme Corp',
+        description:
+            'The company this research is about (the `research()` argument).',
+    })
+    @Column({ type: 'text' })
+    company: string;
 
-  @ApiProperty({
-    description: "Each angle's written report — distinct, not deduped.",
-    example: [
-      {
-        angle: 'company-product-funding',
-        content: 'Acme builds ... and raised a $20M Series A in 2024 ...',
-      },
-    ],
-  })
-  @Column({ type: 'jsonb' })
-  reports: CompanyResearchResult['reports'];
+    @ApiProperty({
+        description: "Each angle's written report — distinct, not deduped.",
+        example: [
+            {
+                angle: 'company-product-funding',
+                content:
+                    'Acme builds ... and raised a $20M Series A in 2024 ...',
+            },
+        ],
+    })
+    @Column({ type: 'jsonb' })
+    reports: CompanyResearchResult['reports'];
 
-  @ApiProperty({
-    description: 'Deduped, ranked sources across all angles.',
-    example: [
-      {
-        title: 'About Acme',
-        url: 'https://acme.com/about',
-        date: '2024-03-01',
-        last_updated: null,
-        snippet: 'Acme is a ...',
-        hits: 3,
-      },
-    ],
-  })
-  @Column({ type: 'jsonb' })
-  sources: RankedSource[];
+    @ApiProperty({
+        description: 'Deduped, ranked sources across all angles.',
+        example: [
+            {
+                title: 'About Acme',
+                url: 'https://acme.com/about',
+                date: '2024-03-01',
+                last_updated: null,
+                snippet: 'Acme is a ...',
+                hits: 3,
+            },
+        ],
+    })
+    @Column({ type: 'jsonb' })
+    sources: RankedSource[];
 
-  @ApiProperty({
-    description: 'The deduped source URLs, in ranked order.',
-    example: ['https://acme.com/about', 'https://acme.com/blog'],
-  })
-  @Column({ type: 'jsonb' })
-  urls: string[];
+    @ApiProperty({
+        description: 'The deduped source URLs, in ranked order.',
+        example: ['https://acme.com/about', 'https://acme.com/blog'],
+    })
+    @Column({ type: 'jsonb' })
+    urls: string[];
 
-  @ApiProperty({
-    description: 'Combined usage/cost across the angle calls.',
-    example: {
-      totalCost: 0.0123,
-      searches: 9,
-      promptTokens: 1500,
-      completionTokens: 2200,
-    },
-  })
-  @Column({ type: 'jsonb' })
-  usage: CompanyResearchResult['usage'];
+    @ApiProperty({
+        description: 'Combined usage/cost across the angle calls.',
+        example: {
+            totalCost: 0.0123,
+            searches: 9,
+            promptTokens: 1500,
+            completionTokens: 2200,
+        },
+    })
+    @Column({ type: 'jsonb' })
+    usage: CompanyResearchResult['usage'];
 
-  @ApiProperty()
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+    @ApiProperty()
+    @CreateDateColumn({ name: 'created_at' })
+    createdAt: Date;
 
-  @ApiProperty()
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+    @ApiProperty()
+    @UpdateDateColumn({ name: 'updated_at' })
+    updatedAt: Date;
 }

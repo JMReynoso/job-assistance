@@ -13,31 +13,35 @@ import { CompanyResearchResult } from '../../externalAPIs/perplexity/perplexity.
  */
 @Injectable()
 export class CompanyResearchRepository {
-  constructor(
-    @InjectRepository(CompanyResearch)
-    private readonly repository: Repository<CompanyResearch>,
-  ) {}
+    constructor(
+        @InjectRepository(CompanyResearch)
+        private readonly repository: Repository<CompanyResearch>,
+    ) {}
 
-  findAll(): Promise<CompanyResearch[]> {
-    return this.repository.find({ order: { id: 'ASC' } });
-  }
+    findAll(): Promise<CompanyResearch[]> {
+        return this.repository.find({ order: { id: 'ASC' } });
+    }
 
-  findById(id: number): Promise<CompanyResearch | null> {
-    return this.repository.findOneBy({ id });
-  }
+    findById(id: number): Promise<CompanyResearch | null> {
+        return this.repository.findOneBy({ id });
+    }
 
-  create(dto: CreateCompanyResearchDto, perplexityResearch: CompanyResearchResult): Promise<CompanyResearch> {
-    const newCompanyResearch = this.repository.create({ 
-      jobId: dto.jobId,
-      company: dto.companyName, 
-      ...perplexityResearch });
+    create(
+        dto: CreateCompanyResearchDto,
+        perplexityResearch: CompanyResearchResult,
+    ): Promise<CompanyResearch> {
+        const newCompanyResearch = this.repository.create({
+            jobId: dto.jobId,
+            company: dto.companyName,
+            ...perplexityResearch,
+        });
 
-    return this.repository.save(newCompanyResearch);
-  }
+        return this.repository.save(newCompanyResearch);
+    }
 
-  async delete(id: number): Promise<boolean> {
-    const result = await this.repository.delete(id);
-    
-    return (result.affected ?? 0) > 0;
-  }
+    async delete(id: number): Promise<boolean> {
+        const result = await this.repository.delete(id);
+
+        return (result.affected ?? 0) > 0;
+    }
 }

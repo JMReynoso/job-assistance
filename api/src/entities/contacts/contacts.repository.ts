@@ -12,31 +12,31 @@ import { Contacts } from './entities/contacts.entity';
  */
 @Injectable()
 export class ContactsRepository {
-  constructor(
-    @InjectRepository(Contacts)
-    private readonly repository: Repository<Contacts>,
-  ) {}
+    constructor(
+        @InjectRepository(Contacts)
+        private readonly repository: Repository<Contacts>,
+    ) {}
 
-  findAll(): Promise<Contacts[]> {
-    return this.repository.find({ order: { id: 'ASC' } });
-  }
+    findAll(): Promise<Contacts[]> {
+        return this.repository.find({ order: { id: 'ASC' } });
+    }
 
-  findById(id: number): Promise<Contacts | null> {
-    return this.repository.findOneBy({ id });
-  }
+    findById(id: number): Promise<Contacts | null> {
+        return this.repository.findOneBy({ id });
+    }
 
-  create(dto: CreateContactsDto): Promise<Contacts> {
-    const contacts = this.repository.create(dto);
-    return this.repository.save(contacts);
-  }
+    create(dto: CreateContactsDto): Promise<Contacts> {
+        const contacts = this.repository.create(dto);
+        return this.repository.save(contacts);
+    }
 
-  async update(id: number, dto: UpdateContactsDto): Promise<Contacts | null> {
-    await this.repository.update(id, dto);
-    return this.findById(id);
-  }
+    async update(id: number, dto: UpdateContactsDto): Promise<Contacts | null> {
+        await this.repository.update(id, dto);
+        return this.findById(id);
+    }
 
-  async delete(id: number): Promise<boolean> {
-    const result = await this.repository.delete(id);
-    return (result.affected ?? 0) > 0;
-  }
+    async delete(id: number): Promise<boolean> {
+        const result = await this.repository.delete(id);
+        return (result.affected ?? 0) > 0;
+    }
 }

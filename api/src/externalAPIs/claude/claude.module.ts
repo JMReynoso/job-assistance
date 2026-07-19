@@ -9,7 +9,7 @@ import { ClaudeService } from './claude.service';
  * uses it. To wire it up, add `imports: [ClaudeModule]` to that feature module.
  */
 @Module({
-  providers: [anthropicProvider, ClaudeService],
-  exports: [ClaudeService],
+    providers: [anthropicProvider, ClaudeService],
+    exports: [ClaudeService],
 })
 export class ClaudeModule {}

@@ -1,8 +1,8 @@
 import {
-  Inject,
-  Injectable,
-  Logger,
-  ServiceUnavailableException,
+    Inject,
+    Injectable,
+    Logger,
+    ServiceUnavailableException,
 } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
 import { ANTHROPIC_CLIENT } from './anthropic.provider';
@@ -29,66 +29,74 @@ Make sure the resume is one-page and is ATS-friendly. Make sure the resume is le
 
 @Injectable()
 export class ClaudeService {
-  private readonly logger = new Logger(ClaudeService.name);
+    private readonly logger = new Logger(ClaudeService.name);
 
-  constructor(
-    @Inject(ANTHROPIC_CLIENT) private readonly anthropic: Anthropic,
-  ) {}
+    constructor(
+        @Inject(ANTHROPIC_CLIENT) private readonly anthropic: Anthropic,
+    ) {}
 
-  /**
-   * Drafts a tailored resume from a master resume + job posting. This is an example of
-   * the shape a Claude-backed method takes — copy it for real use cases.
-   */
-  async draftResume(masterResume: string, jobPosting: string, companyWebsite: string, otherURLAboutCompany?: string[]): Promise<string> {
-    try {
-      const response = await this.anthropic.messages.create({
-        model: 'claude-opus-4-8',
-        max_tokens: 16000,
-        // Let Claude decide how much to reason. Add
-        // `output_config: { effort: 'high' }` to push quality further.
-        thinking: { type: 'adaptive' },
-        system: [
-          {
-            type: 'text',
-            text: COVER_LETTER_SYSTEM,
-            cache_control: { type: 'ephemeral' },
-          },
-        ],
-        messages: [
-          {
-            role: 'user',
-            content: `MASTER RESUME:\n${masterResume}\n\n
+    /**
+     * Drafts a tailored resume from a master resume + job posting. This is an example of
+     * the shape a Claude-backed method takes — copy it for real use cases.
+     */
+    async draftResume(
+        masterResume: string,
+        jobPosting: string,
+        companyWebsite: string,
+        otherURLAboutCompany?: string[],
+    ): Promise<string> {
+        try {
+            const response = await this.anthropic.messages.create({
+                model: 'claude-opus-4-8',
+                max_tokens: 16000,
+                // Let Claude decide how much to reason. Add
+                // `output_config: { effort: 'high' }` to push quality further.
+                thinking: { type: 'adaptive' },
+                system: [
+                    {
+                        type: 'text',
+                        text: COVER_LETTER_SYSTEM,
+                        cache_control: { type: 'ephemeral' },
+                    },
+                ],
+                messages: [
+                    {
+                        role: 'user',
+                        content: `MASTER RESUME:\n${masterResume}\n\n
               JOB POSTING:\n${jobPosting}\n\n
               COMPANY WEBSITE:\n${companyWebsite}\n\n
               Other URLs about the company:\n${otherURLAboutCompany?.join('\n') || 'None'}\n\n
               Return a one-page resume in json format.`,
-          },
-        ],
-      });
+                    },
+                ],
+            });
 
-      return response.content
-        .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-        .map((block) => block.text)
-        .join('');
-    } catch (error) {
-      if (error instanceof Anthropic.RateLimitError) {
-        this.logger.warn('Anthropic rate limited the request');
-        throw new ServiceUnavailableException(
-          'AI service is busy, please try again shortly',
-        );
-      }
-      throw error;
+            return response.content
+                .filter(
+                    (block): block is Anthropic.TextBlock =>
+                        block.type === 'text',
+                )
+                .map((block) => block.text)
+                .join('');
+        } catch (error) {
+            if (error instanceof Anthropic.RateLimitError) {
+                this.logger.warn('Anthropic rate limited the request');
+                throw new ServiceUnavailableException(
+                    'AI service is busy, please try again shortly',
+                );
+            }
+            throw error;
+        }
     }
-  }
 
-  //TODO: create summary based on research of company method
-  /*
+    //TODO: create summary based on research of company method
+    /*
     with the passed URLs (maybe taken from perplexity?)
     Summarize the company's tech stack, engineering culture, mission statement 
     and what they do, and recent products all in 5 bullet points
    */
 
-  //TODO: create outreach message based on research
+    //TODO: create outreach message based on research
 
-  //TODO: create follow-up message based on research
+    //TODO: create follow-up message based on research
 }

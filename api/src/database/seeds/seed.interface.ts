@@ -5,7 +5,7 @@ import { DataSource } from 'typeorm';
  * startup, so re-running one should be a no-op once its data already exists.
  */
 export interface Seed {
-  /** Human-readable label, shown in the startup logs. */
-  name: string;
-  run(dataSource: DataSource): Promise<void>;
+    /** Human-readable label, shown in the startup logs. */
+    name: string;
+    run(dataSource: DataSource): Promise<void>;
 }

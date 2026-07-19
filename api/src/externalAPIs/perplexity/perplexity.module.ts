@@ -10,7 +10,7 @@ import { PerplexityService } from './perplexity.service';
  * add `imports: [PerplexityModule]` to that feature module.
  */
 @Module({
-  providers: [perplexityProvider, PerplexityService],
-  exports: [PerplexityService],
+    providers: [perplexityProvider, PerplexityService],
+    exports: [PerplexityService],
 })
 export class PerplexityModule {}

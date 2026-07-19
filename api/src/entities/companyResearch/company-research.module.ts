@@ -6,9 +6,9 @@ import { CompanyResearchRepository } from './company-research.repository';
 import { CompanyResearchService } from './company-research.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([CompanyResearch])],
-  controllers: [CompanyResearchController],
-  providers: [CompanyResearchService, CompanyResearchRepository],
-  exports: [CompanyResearchService],
+    imports: [TypeOrmModule.forFeature([CompanyResearch])],
+    controllers: [CompanyResearchController],
+    providers: [CompanyResearchService, CompanyResearchRepository],
+    exports: [CompanyResearchService],
 })
 export class CompanyResearchModule {}

@@ -7,12 +7,12 @@ import { runSeeds } from './index';
  * with plain `node`, so it needs no ts-node at runtime.
  */
 async function main(): Promise<void> {
-  const dataSource = await AppDataSource.initialize();
-  try {
-    await runSeeds(dataSource);
-  } finally {
-    await dataSource.destroy();
-  }
+    const dataSource = await AppDataSource.initialize();
+    try {
+        await runSeeds(dataSource);
+    } finally {
+        await dataSource.destroy();
+    }
 }
 
 void main();

@@ -1,0 +1,6 @@
+{
+  // Render/insert 4 spaces per indent. detectIndentation must be off, or VS Code
+  // guesses each file's indent from its content and ignores tabSize.
+  "editor.tabSize": 4,
+  "editor.detectIndentation": false
+}

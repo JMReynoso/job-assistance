@@ -1,10 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
+    Column,
+    CreateDateColumn,
+    Entity,
+    PrimaryGeneratedColumn,
+    UpdateDateColumn,
 } from 'typeorm';
 
 /**
@@ -13,26 +13,26 @@ import {
  */
 @Entity({ name: 'examples' })
 export class Example {
-  @ApiProperty({ example: 1, description: 'Auto-generated primary key' })
-  @PrimaryGeneratedColumn()
-  id: number;
+    @ApiProperty({ example: 1, description: 'Auto-generated primary key' })
+    @PrimaryGeneratedColumn()
+    id: number;
 
-  @ApiProperty({ example: 'Sample widget' })
-  @Column({ type: 'text' })
-  name: string;
+    @ApiProperty({ example: 'Sample widget' })
+    @Column({ type: 'text' })
+    name: string;
 
-  @ApiProperty({
-    example: 'A short description of the widget.',
-    nullable: true,
-  })
-  @Column({ type: 'text', nullable: true })
-  description: string | null;
+    @ApiProperty({
+        example: 'A short description of the widget.',
+        nullable: true,
+    })
+    @Column({ type: 'text', nullable: true })
+    description: string | null;
 
-  @ApiProperty()
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+    @ApiProperty()
+    @CreateDateColumn({ name: 'created_at' })
+    createdAt: Date;
 
-  @ApiProperty()
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+    @ApiProperty()
+    @UpdateDateColumn({ name: 'updated_at' })
+    updatedAt: Date;
 }

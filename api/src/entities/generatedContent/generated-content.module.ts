@@ -6,9 +6,9 @@ import { GeneratedContentRepository } from './generated-content.repository';
 import { GeneratedContentService } from './generated-content.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([GeneratedContent])],
-  controllers: [GeneratedContentController],
-  providers: [GeneratedContentService, GeneratedContentRepository],
-  exports: [GeneratedContentService],
+    imports: [TypeOrmModule.forFeature([GeneratedContent])],
+    controllers: [GeneratedContentController],
+    providers: [GeneratedContentService, GeneratedContentRepository],
+    exports: [GeneratedContentService],
 })
 export class GeneratedContentModule {}

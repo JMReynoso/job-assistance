@@ -1,10 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
+    Column,
+    CreateDateColumn,
+    Entity,
+    PrimaryGeneratedColumn,
+    UpdateDateColumn,
 } from 'typeorm';
 import { Status } from './enum/status.enum';
 
@@ -14,41 +14,41 @@ import { Status } from './enum/status.enum';
  */
 @Entity({ name: 'examples' })
 export class Job {
-  @ApiProperty({ example: 1, description: 'Auto-generated primary key' })
-  @PrimaryGeneratedColumn()
-  id: number;
+    @ApiProperty({ example: 1, description: 'Auto-generated primary key' })
+    @PrimaryGeneratedColumn()
+    id: number;
 
-  @ApiProperty({ example: 'Sample widget' })
-  @Column({ type: 'text' })
-  companyName: string;
+    @ApiProperty({ example: 'Sample widget' })
+    @Column({ type: 'text' })
+    companyName: string;
 
-  @ApiProperty({
-    example: 'A short description of the widget.'
-  })
-  @Column({ type: 'text' })
-  jobPostingURL: string;
+    @ApiProperty({
+        example: 'A short description of the widget.',
+    })
+    @Column({ type: 'text' })
+    jobPostingURL: string;
 
-  @ApiProperty({ example: 'Sample widget' })
-  @Column({ type: 'text' })
-  companyPage: string;
+    @ApiProperty({ example: 'Sample widget' })
+    @Column({ type: 'text' })
+    companyPage: string;
 
-  @ApiProperty({ example: 'Sample widget' })
-  @Column({ type: 'text' })
-  companyLinkedIn: string;
+    @ApiProperty({ example: 'Sample widget' })
+    @Column({ type: 'text' })
+    companyLinkedIn: string;
 
-  @ApiProperty({ example: 'Sample widget' })
-  @Column({ type: 'text', nullable: true })
-  extraURLs?: string;
+    @ApiProperty({ example: 'Sample widget' })
+    @Column({ type: 'text', nullable: true })
+    extraURLs?: string;
 
-  @ApiProperty({ example: 'Sample widget' })
-  @Column({ type: 'text' })
-  status: Status;
+    @ApiProperty({ example: 'Sample widget' })
+    @Column({ type: 'text' })
+    status: Status;
 
-  @ApiProperty()
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+    @ApiProperty()
+    @CreateDateColumn({ name: 'created_at' })
+    createdAt: Date;
 
-  @ApiProperty()
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+    @ApiProperty()
+    @UpdateDateColumn({ name: 'updated_at' })
+    updatedAt: Date;
 }

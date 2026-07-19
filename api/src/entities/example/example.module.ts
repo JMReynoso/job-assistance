@@ -6,9 +6,9 @@ import { ExampleRepository } from './example.repository';
 import { ExampleService } from './example.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Example])],
-  controllers: [ExampleController],
-  providers: [ExampleService, ExampleRepository],
-  exports: [ExampleService],
+    imports: [TypeOrmModule.forFeature([Example])],
+    controllers: [ExampleController],
+    providers: [ExampleService, ExampleRepository],
+    exports: [ExampleService],
 })
 export class ExampleModule {}

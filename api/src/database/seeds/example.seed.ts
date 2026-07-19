@@ -8,20 +8,20 @@ import { Seed } from './seed.interface';
  * data, or disable seeding entirely (RUN_SEEDS=false), for production.
  */
 export const exampleSeed: Seed = {
-  name: 'examples',
-  async run(dataSource) {
-    const repo = dataSource.getRepository(Example);
+    name: 'examples',
+    async run(dataSource) {
+        const repo = dataSource.getRepository(Example);
 
-    if ((await repo.count()) > 0) {
-      return;
-    }
+        if ((await repo.count()) > 0) {
+            return;
+        }
 
-    await repo.save([
-      {
-        name: 'Sample widget',
-        description: 'A short description of the widget.',
-      },
-      { name: 'Another widget', description: null },
-    ]);
-  },
+        await repo.save([
+            {
+                name: 'Sample widget',
+                description: 'A short description of the widget.',
+            },
+            { name: 'Another widget', description: null },
+        ]);
+    },
 };
