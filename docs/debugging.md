@@ -88,13 +88,42 @@ trigger the endpoint again.
 
 ---
 
-## The other two configurations
+## Debugging the API inside Docker (full stack)
 
-You usually only need "Debug API", but the dropdown has two more:
+The "quick way" above runs the API **on your host** and expects only Postgres in
+Docker. If instead you run the **whole stack** in Docker
+(`docker compose -f infra/docker-compose.dev.yml up`), use this flow — otherwise
+you'll have two copies of the API fighting over port `4001`, and your requests
+hit the container (no debugger) while VS Code is attached to nothing.
 
-- **Debug API: attach** — for when you *already* started the app yourself with
-  `npm run start:debug` in a terminal. This just hooks the debugger onto that
-  running process (it listens on port `9229`) instead of starting a new one.
+1. **Start the stack** (from the repo root):
+   ```bash
+   docker compose -f infra/docker-compose.dev.yml up
+   ```
+   The `api` service already runs under the Node inspector on `0.0.0.0:9229`,
+   published to your host. (Don't also run "Debug API" — that's the host copy and
+   it will collide on port 4001.)
+2. In **Run and Debug** (`Ctrl+Shift+D`), pick **"Debug API: attach (Docker)"**
+   and press `F5`. VS Code connects to the debugger inside the container.
+3. Set a breakpoint in any `src/**/*.ts` and hit the endpoint (Swagger at
+   <http://localhost:4001/>). Execution pauses on your line. 🎉
+
+Save a `.ts` file and watch mode recompiles/restarts the container process; the
+debugger re-attaches on its own (`restart: true`).
+
+---
+
+## The other configurations
+
+You usually only need "Debug API" (host) or "Debug API: attach (Docker)", but the
+dropdown has more:
+
+- **Debug API: attach** — for when you *already* started the app yourself on the
+  host with `npm run start:debug` in a terminal. This just hooks the debugger
+  onto that running process (it listens on port `9229`) instead of starting a new
+  one.
+- **Debug API: attach (Docker)** — attach to the API running **inside** the
+  Docker container (see the section above).
 - **Debug API: current Jest test** — debug a **test** instead of the live app.
   Open the `*.spec.ts` file you want, set your breakpoints, make sure this config
   is selected, and press `F5`. It runs just that test file, paused wherever you

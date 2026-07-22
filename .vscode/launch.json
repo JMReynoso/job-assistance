@@ -29,6 +29,24 @@
       "skipFiles": ["<node_internals>/**"]
     },
     {
+      // Attach to the API running INSIDE the Docker container (the full
+      // `docker compose -f infra/docker-compose.dev.yml up` stack). The api
+      // service runs the Node inspector on 0.0.0.0:9229 (published to the
+      // host), so pick this config and press F5 to hook the debugger onto it.
+      // localRoot/remoteRoot map your on-disk source to the container path so
+      // breakpoints in src/**/*.ts resolve. `restart` re-attaches after each
+      // watch-mode reload.
+      "name": "Debug API: attach (Docker)",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "address": "localhost",
+      "restart": true,
+      "localRoot": "${workspaceFolder}/api",
+      "remoteRoot": "/app",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
       // Debug the test file you currently have open (open the *.spec.ts, then F5).
       "name": "Debug API: current Jest test",
       "type": "node",

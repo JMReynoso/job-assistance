@@ -33,7 +33,6 @@ export class CompanyResearchService {
     async create(
         createCompanyResearchDto: CreateCompanyResearchDto,
     ): Promise<CompanyResearch> {
-        const jobId = createCompanyResearchDto.jobId;
 
         const URLs = [
             createCompanyResearchDto.jobPostingUrl,

@@ -18,8 +18,16 @@ services:
     build:
       context: ../api
       dockerfile: Dockerfile.dev
+    # Override the image CMD to run under the Node inspector so VS Code can
+    # attach and hit breakpoints. `0.0.0.0:9229` (not the default 127.0.0.1)
+    # is what makes the debugger reachable from the host across the container
+    # boundary. --watch still recompiles/restarts on save; the "Debug API:
+    # attach (Docker)" launch config re-attaches automatically (restart:true).
+    command: ./node_modules/.bin/nest start --debug 0.0.0.0:9229 --watch
     ports:
       - "4001:4001"
+      # Node inspector (debugger) — matches the launch.json attach config.
+      - "9229:9229"
     environment:
       NODE_ENV: development
       PORT: 4001
