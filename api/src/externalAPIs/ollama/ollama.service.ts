@@ -47,17 +47,19 @@ export class OllamaService {
         this.model = this.config.get<string>('OLLAMA_MODEL') ?? 'qwen3';
     }
 
-    /** Warm outreach message, personalized from the company research summary. */
+    /** Warm outreach message, personalized from the company research summary.
     async draftOutreachMessage(summary: string): Promise<OllamaTextResult> {
         return this.draftMessage(OUTREACH_SYSTEM, summary, 'Outreach message');
     }
+    */
 
-    /** Warm-but-corporate follow-up message, personalized from the summary. */
+    /** Warm-but-corporate follow-up message, personalized from the summary. 
     async draftFollowUpMessage(summary: string): Promise<OllamaTextResult> {
         return this.draftMessage(FOLLOWUP_SYSTEM, summary, 'Follow-up message');
     }
+    */
 
-    /** Shared engine: one non-streaming chat call to Ollama, mapped to a result. */
+    /** Shared engine: one non-streaming chat call to Ollama, mapped to a result. 
     private async draftMessage(
         system: string,
         summary: string,
@@ -69,4 +71,6 @@ export class OllamaService {
 
         return { content: '' };
     }
+
+    */
 }
