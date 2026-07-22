@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateCompanyResearchDto } from './dto/create-company-research.dto';
 import { CompanyResearch } from './entities/company-research.entity';
-import { CompanyResearchResult } from '../../externalAPIs/perplexity/perplexity.service';
+import { CompanyResearchResult } from '../../externalAPIs/perplexity/perplexity.types';
 
 /**
  * Everything that touches Postgres for this entity lives here. The service

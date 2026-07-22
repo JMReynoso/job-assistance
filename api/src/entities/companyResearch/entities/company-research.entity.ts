@@ -6,7 +6,7 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from 'typeorm';
-import type { CompanyResearchResult } from '../../../externalAPIs/perplexity/perplexity.service';
+import type { CompanyResearchResult } from '../../../externalAPIs/perplexity/perplexity.types';
 
 /**
  * A persisted snapshot of one Perplexity company-research run.
