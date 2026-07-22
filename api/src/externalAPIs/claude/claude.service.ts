@@ -6,26 +6,32 @@ import {
 } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
 import { ANTHROPIC_CLIENT } from './anthropic.provider';
+import {
+    COVER_LETTER_SYSTEM,
+    FOLLOWUP_SYSTEM,
+    OUTREACH_SYSTEM,
+    RESEARCH_MODEL,
+} from './claude.constants';
 
 /**
  * The one place that talks to the Claude API. Domain services depend on these
- * methods, never on the Anthropic SDK directly — so prompts, model choice, and
- * error mapping all live here (the same discipline the repositories use to hide
- * TypeORM: one seam per external system).
+ * methods, never on the Anthropic SDK directly — so param wiring and error mapping
+ * live here (the prompts live in claude.constants.ts). Same discipline the
+ * repositories use to hide TypeORM: one seam per external system.
  */
 
-// Stable instructions — kept first and cached so repeat calls only pay full
-// price for the changing resume/posting, not this prefix.
-const COVER_LETTER_SYSTEM = `You are an expert career coach writing tailored cover letters.
-Write in a confident, specific voice. Never invent experience the candidate does not have. 
-Make sure the resume is one-page and is ATS-friendly. Make sure the resume is letter size. Tailor this resume to match the job description which is a URL that will be sent in the messages.\n\n
-            Instructions:\n
-            1. Rewrite the professional summary to align with the company and role.\n
-            2. update and reorder bullet points to highlight the most relevant experience and keywords from the job description.\n
-            3. Make sure the section structure goes Summary, Skills, Experience, Projects, Education in that exact order.\n
-            4. Make is ATS friendly (no tables, no images, no columns in the final layout)\n
-            
-`;
+/** Text Claude produced, plus what the call cost. */
+export interface ClaudeTextResult {
+    /** The generated text (the drafted message). */
+    content: string;
+    /** Token usage for the call — for cost tracking. */
+    usage: Anthropic.Message['usage'];
+}
+
+// Output ceiling for a drafted message. With the company summary (~3k tokens) as
+// input, 1200 output tokens keeps a single message well under $0.04 even at
+// Sonnet 5's post-intro rates ($3/M in, $15/M out ≈ $0.03), and lower today.
+const MESSAGE_MAX_TOKENS = 1200;
 
 @Injectable()
 export class ClaudeService {
@@ -89,14 +95,92 @@ export class ClaudeService {
         }
     }
 
-    //TODO: create summary based on research of company method
-    /*
-    with the passed URLs (maybe taken from perplexity?)
-    Summarize the company's tech stack, engineering culture, mission statement 
-    and what they do, and recent products all in 5 bullet points
-   */
+    /**
+     * Drafts a warm outreach message to a recruiter or hiring manager, personalized
+     * from the company research `summary` (the stored PerplexityService output),
+     * following Justin's fixed template. Focuses on the company's mission, stack, and
+     * blogs and how Justin would fit in.
+     */
+    async draftOutreachMessage(summary: string): Promise<ClaudeTextResult> {
+        return this.draftMessage({
+            system: OUTREACH_SYSTEM,
+            summary,
+            logLabel: 'Outreach message',
+        });
+    }
 
-    //TODO: create outreach message based on research
+    /**
+     * Drafts a warm-but-corporate follow-up message, personalized from the company
+     * research `summary`. Same focus as the outreach message: mission, stack, blogs,
+     * and fit.
+     */
+    async draftFollowUpMessage(summary: string): Promise<ClaudeTextResult> {
+        return this.draftMessage({
+            system: FOLLOWUP_SYSTEM,
+            summary,
+            logLabel: 'Follow-up message',
+        });
+    }
 
-    //TODO: create follow-up message based on research
+    /**
+     * Shared engine behind draftOutreachMessage / draftFollowUpMessage. Takes the
+     * company research summary as context (no web_fetch — the research is already
+     * done) and drafts a message with Sonnet at medium effort, capped so a single
+     * message stays under the ~$0.04 budget. Callers differ only in system prompt
+     * and log label.
+     */
+    private async draftMessage(opts: {
+        system: string;
+        summary: string;
+        logLabel: string;
+    }): Promise<ClaudeTextResult> {
+        try {
+            const response = await this.anthropic.messages.create({
+                model: RESEARCH_MODEL,
+                max_tokens: MESSAGE_MAX_TOKENS,
+                // Let Claude decide how much to reason; a short message needs little.
+                thinking: { type: 'adaptive' },
+                // Medium effort — warm, personal quality without paying for deep
+                // deliberation the task doesn't need.
+                output_config: { effort: 'medium' },
+                system: [
+                    {
+                        type: 'text',
+                        text: opts.system,
+                        cache_control: { type: 'ephemeral' },
+                    },
+                ],
+                messages: [
+                    {
+                        role: 'user',
+                        content: `Here is the company research summary to work from:\n\n${opts.summary}`,
+                    },
+                ],
+            });
+
+            const content = response.content
+                .filter(
+                    (block): block is Anthropic.TextBlock =>
+                        block.type === 'text',
+                )
+                .map((block) => block.text)
+                .join('')
+                .trim();
+
+            this.logger.log(
+                `${opts.logLabel} (claude) — in=${response.usage.input_tokens} ` +
+                    `out=${response.usage.output_tokens}`,
+            );
+
+            return { content, usage: response.usage };
+        } catch (error) {
+            if (error instanceof Anthropic.RateLimitError) {
+                this.logger.warn('Anthropic rate limited the request');
+                throw new ServiceUnavailableException(
+                    'AI service is busy, please try again shortly',
+                );
+            }
+            throw error;
+        }
+    }
 }
