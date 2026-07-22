@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { dataSourceOptions } from './database/data-source';
 import { ExampleModule } from './entities/example/example.module';
+import { CompanyResearchModule } from './entities/companyResearch/company-research.module';
 
 @Module({
     imports: [
@@ -15,7 +16,7 @@ import { ExampleModule } from './entities/example/example.module';
         // Schema changes go through migrations (run on startup in main.ts), not
         // `synchronize`.
         TypeOrmModule.forRoot(dataSourceOptions),
-        ExampleModule,
+        CompanyResearchModule,
     ],
     controllers: [AppController],
 })

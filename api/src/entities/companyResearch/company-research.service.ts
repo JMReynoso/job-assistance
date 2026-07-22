@@ -4,13 +4,14 @@ import { CompanyResearch } from './entities/company-research.entity';
 import { CompanyResearchRepository } from './company-research.repository';
 import {
     CompanyResearchResult,
-    research,
+    PerplexityService,
 } from '../../externalAPIs/perplexity/perplexity.service';
 
 @Injectable()
 export class CompanyResearchService {
     constructor(
         private readonly companyResearchRepository: CompanyResearchRepository,
+        private readonly perplexityService: PerplexityService,
     ) {}
 
     findAll(): Promise<CompanyResearch[]> {
@@ -29,7 +30,7 @@ export class CompanyResearchService {
         return companyResearch;
     }
 
-    create(
+    async create(
         createCompanyResearchDto: CreateCompanyResearchDto,
     ): Promise<CompanyResearch> {
         const jobId = createCompanyResearchDto.jobId;
@@ -38,16 +39,14 @@ export class CompanyResearchService {
             createCompanyResearchDto.jobPostingUrl,
             createCompanyResearchDto.companyPageUrl,
             createCompanyResearchDto.companyLinkedInUrl,
-            ...(createCompanyResearchDto.extraLinks
-                ? createCompanyResearchDto.extraLinks.split('\n')
-                : []),
+            ...(createCompanyResearchDto.extraLinks ?? []),
         ]
             .map((url) => url.trim())
             .filter((url): url is string => !!url);
 
-        const companyResearch: CompanyResearchResult = research(
+        const companyResearch: CompanyResearchResult = await this.perplexityService.research(
             createCompanyResearchDto.companyName,
-            { verifyURLs: URLs },
+            { verifyUrls: URLs },
         );
 
         return this.companyResearchRepository.create(
