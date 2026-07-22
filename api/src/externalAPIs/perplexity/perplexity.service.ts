@@ -89,6 +89,20 @@ export interface CompanyResearchOptions {
      * research stays broad, these are just trusted anchors.
      */
     verifyUrls?: string[];
+    /**
+     * Keep at most this many sources from EACH angle (they come back ranked, so
+     * this is the top-N). Caps how many pages flow into the merge — and, in turn,
+     * downstream to Claude. Defaults to {@link DEFAULT_MAX_SOURCES_PER_ANGLE}.
+     * `verifyUrls` are unaffected: they're still always present in the output.
+     */
+    maxSourcesPerAngle?: number;
+    /**
+     * Hard ceiling on each angle's written report length, in completion tokens
+     * (the API's `max_tokens`). Combined with a "be concise" instruction so
+     * reports usually stop naturally well under this. Lower = cheaper + shorter.
+     * Defaults to {@link DEFAULT_MAX_TOKENS}.
+     */
+    maxTokens?: number;
     /** Abort each angle after this many ms. Defaults to 2 minutes. */
     timeoutMs?: number;
 }
@@ -103,7 +117,7 @@ interface ResearchAngle {
 const RESEARCH_ANGLES: ResearchAngle[] = [
     {
         label: 'company-product-funding',
-        focus: 'what the company does, its main products, and its funding / financials',
+        focus: 'what the company does and its mission, its main products, and its funding / financials',
     },
     {
         label: 'eng-culture-stack',
@@ -119,6 +133,19 @@ const RESEARCHER_SYSTEM =
     'You are a meticulous company researcher helping a software engineer prepare ' +
     'a job application. State only facts you can cite; if unsure, say so. Prefer ' +
     'primary sources (the company site, engineering blog, reputable news).';
+
+/**
+ * Default per-angle source cap. Three angles → at most this many × 3 sources
+ * before de-duping, keeping what we store and feed to Claude bounded and cheap.
+ */
+const DEFAULT_MAX_SOURCES_PER_ANGLE = 10;
+
+/**
+ * Default hard ceiling on each angle's report length (completion tokens). The
+ * prompt also asks for a concise (~200-word) report, so this is mostly a safety
+ * cap the model rarely reaches — but it bounds worst-case output cost.
+ */
+const DEFAULT_MAX_TOKENS = 700;
 
 interface SonarUsage {
     prompt_tokens: number;
@@ -252,6 +279,10 @@ export class PerplexityService {
 
         const body: Record<string, unknown> = {
             model: options.model ?? 'sonar-pro',
+            // Cap the report length. A hard ceiling on completion tokens keeps
+            // worst-case output cost bounded; the prompt asks for a concise
+            // report so it normally stops well below this.
+            max_tokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
             web_search_options: {
                 search_context_size: options.contextSize ?? 'medium',
             },
@@ -261,7 +292,9 @@ export class PerplexityService {
                     role: 'user',
                     content:
                         `Research ${company} for a software engineer preparing to apply. ` +
-                        `Focus on ${angle.focus}. Be specific and cite every claim with a source URL.` +
+                        `Focus on ${angle.focus}. Be specific and cite every claim with a source URL. ` +
+                        `Keep the report concise — aim for under ~200 words, prioritizing specific, ` +
+                        `citable facts over prose.` +
                         verify,
                 },
             ],
@@ -277,10 +310,15 @@ export class PerplexityService {
         );
         this.logUsage(data.model, data.usage, angle.label);
 
+        // Sonar returns sources ranked by relevance, so slicing keeps the best
+        // ones. This is the only real lever on source count — the API has no
+        // "max citations" knob — and it bounds what flows into the merge.
+        const cap = options.maxSourcesPerAngle ?? DEFAULT_MAX_SOURCES_PER_ANGLE;
+
         return {
             angle: angle.label,
             content: data.choices[0]?.message?.content ?? '',
-            sources: data.search_results ?? [],
+            sources: (data.search_results ?? []).slice(0, cap),
             usage: data.usage,
         };
     }

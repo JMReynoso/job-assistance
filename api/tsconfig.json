@@ -21,5 +21,19 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false
+  },
+  // Watch-mode file watching. Inside the dev Docker container the source is a
+  // Windows→Linux bind mount, and inotify events don't cross it — so the default
+  // (event-based) watcher never sees edits and `nest start --watch` never
+  // rebuilds. Polling is the reliable cross-boundary option. Only affects watch
+  // mode (`nest start --watch`), never `nest build`, so prod is untouched; on a
+  // native host it just polls instead of using events (negligible for this tree,
+  // and node_modules/dist are excluded).
+  "watchOptions": {
+    "watchFile": "priorityPollingInterval",
+    "watchDirectory": "dynamicPriorityPolling",
+    "fallbackPolling": "dynamicPriority",
+    "synchronousWatchDirectory": true,
+    "excludeDirectories": ["**/node_modules", "dist"]
   }
 }
