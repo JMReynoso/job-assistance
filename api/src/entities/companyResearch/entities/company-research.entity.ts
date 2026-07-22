@@ -6,19 +6,16 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from 'typeorm';
-import type {
-    CompanyResearchResult,
-    RankedSource,
-} from '../../../externalAPIs/perplexity/perplexity.service';
+import type { CompanyResearchResult } from '../../../externalAPIs/perplexity/perplexity.service';
 
 /**
  * A persisted snapshot of one Perplexity company-research run.
  *
  * The columns mirror {@link CompanyResearchResult} — the shape PerplexityService
- * returns — so `research()`'s output can be saved verbatim. The structured
- * fields (reports / sources / urls / usage) are stored as `jsonb` and typed off
- * the service interfaces, keeping a single source of truth: change the result
- * shape there and these columns follow.
+ * returns — so `research()`'s output can be saved verbatim. `summary` is the two
+ * angles' 5-bullet summaries combined into one text block; `urls` and `usage` are
+ * stored as `jsonb` and typed off the service interface, keeping a single source
+ * of truth: change the result shape there and these columns follow.
  */
 @Entity({ name: 'company_research' })
 export class CompanyResearch {
@@ -42,33 +39,17 @@ export class CompanyResearch {
     company: string;
 
     @ApiProperty({
-        description: "Each angle's written report — distinct, not deduped.",
-        example: [
-            {
-                angle: 'company-product-funding',
-                content:
-                    'Acme builds ... and raised a $20M Series A in 2024 ...',
-            },
-        ],
+        description:
+            "The two angles' 5-bullet summaries (company-product-funding, then " +
+            'eng-culture-stack) combined into one block, separated by four ' +
+            'newlines and a 10-dash rule.',
+        example:
+            '- Acme builds developer tooling for CI/CD.\n- Raised a $20M Series A in 2024.' +
+            '\n\n\n\n----------\n\n\n\n' +
+            '- Engineering is TypeScript-heavy (NestJS + React).\n- Strong testing culture.',
     })
-    @Column({ type: 'jsonb' })
-    reports: CompanyResearchResult['reports'];
-
-    @ApiProperty({
-        description: 'Deduped, ranked sources across all angles.',
-        example: [
-            {
-                title: 'About Acme',
-                url: 'https://acme.com/about',
-                date: '2024-03-01',
-                last_updated: null,
-                snippet: 'Acme is a ...',
-                hits: 3,
-            },
-        ],
-    })
-    @Column({ type: 'jsonb' })
-    sources: RankedSource[];
+    @Column({ type: 'text' })
+    summary: string;
 
     @ApiProperty({
         description: 'The deduped source URLs, in ranked order.',

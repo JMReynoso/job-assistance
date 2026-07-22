@@ -17,10 +17,9 @@ import {
  * the Anthropic client — one seam per external system, so prompts/params and
  * error mapping live here.
  *
- * `research()` fans out three focused Sonar Pro searches (one per angle below),
- * runs them in parallel, then merges/de-dupes/ranks the sources by URL so the
- * caller can feed a company's pages to Claude ONCE — not the same about-page
- * three times.
+ * `research()` fans out two focused Sonar Pro searches (one per angle below),
+ * runs them in parallel, and returns a combined 5-bullets-per-angle `summary`
+ * plus a merged/de-duped `urls` list.
  *
  * Docs: https://docs.perplexity.ai/api-reference/chat-completions-post
  */
@@ -50,13 +49,16 @@ export interface RankedSource extends PerplexitySource {
     verified?: boolean;
 }
 
-/** The result of researching one company across all angles. */
+/** The result of researching one company across both angles. */
 export interface CompanyResearchResult {
-    /** Each angle's written report (distinct — not deduped), for context. */
-    reports: { angle: string; content: string }[];
-    /** Deduped, ranked sources across all angles — feed these to Claude once. */
-    sources: RankedSource[];
-    /** Convenience: the deduped source URLs, in ranked order. */
+    /**
+     * The two angles' 5-bullet summaries combined into one block, in angle order
+     * (company-product-funding, then eng-culture-stack), joined by
+     * {@link SUMMARY_ANGLE_SEPARATOR}. This is what gets stored and later fed to a
+     * message-drafting model (Claude / Ollama).
+     */
+    summary: string;
+    /** Deduped source URLs across both angles, in ranked order. */
     urls: string[];
     /** Combined usage/cost across the angle calls. */
     usage: {
@@ -113,7 +115,7 @@ interface ResearchAngle {
     focus: string;
 }
 
-/** The three angles `research()` fans a company out into. */
+/** The two angles `research()` fans a company out into. */
 const RESEARCH_ANGLES: ResearchAngle[] = [
     {
         label: 'company-product-funding',
@@ -121,11 +123,7 @@ const RESEARCH_ANGLES: ResearchAngle[] = [
     },
     {
         label: 'eng-culture-stack',
-        focus: 'its engineering culture and the software / tech stack it uses',
-    },
-    {
-        label: 'news-hiring',
-        focus: 'recent news and current hiring signals (open roles, growth, layoffs)',
+        focus: 'its engineering culture, the software / tech stack it uses, and its engineering blog',
     },
 ];
 
@@ -135,17 +133,24 @@ const RESEARCHER_SYSTEM =
     'primary sources (the company site, engineering blog, reputable news).';
 
 /**
- * Default per-angle source cap. Three angles → at most this many × 3 sources
- * before de-duping, keeping what we store and feed to Claude bounded and cheap.
+ * Default per-angle source cap. Two angles → at most this many × 2 sources
+ * before de-duping, keeping the stored `urls` list bounded.
  */
 const DEFAULT_MAX_SOURCES_PER_ANGLE = 10;
 
 /**
- * Default hard ceiling on each angle's report length (completion tokens). The
- * prompt also asks for a concise (~200-word) report, so this is mostly a safety
- * cap the model rarely reaches — but it bounds worst-case output cost.
+ * Default hard ceiling on each angle's summary length (completion tokens). Each
+ * angle returns a 5-bullet summary, so this bounds worst-case output cost while
+ * leaving the bullets room to breathe.
  */
-const DEFAULT_MAX_TOKENS = 700;
+const DEFAULT_MAX_TOKENS = 1500;
+
+/**
+ * Joins the two angles' summaries into the single `summary` field: four newlines,
+ * a 10-dash rule, four newlines. Used only *between* angles — not before the
+ * first or after the last.
+ */
+const SUMMARY_ANGLE_SEPARATOR = '\n\n\n\n----------\n\n\n\n';
 
 interface SonarUsage {
     prompt_tokens: number;
@@ -196,10 +201,10 @@ export class PerplexityService {
     ) {}
 
     /**
-     * Researches a company across three angles (company/product/funding,
-     * engineering culture/stack, and news/hiring) with parallel Sonar Pro calls,
-     * then merges the sources into one deduped, ranked list. A URL cited by more
-     * angles ranks higher; the about-page that shows up in all three appears once.
+     * Researches a company across two angles (company/product/funding and
+     * engineering culture/stack) with parallel Sonar Pro calls. Each angle returns
+     * a 5-bullet summary; the two are combined into one `summary` block, and the
+     * angles' sources are merged into one deduped, ranked `urls` list.
      */
     async research(
         company: string,
@@ -247,17 +252,20 @@ export class PerplexityService {
         const sources = this.mergeSources(fulfilled, verifyUrls);
         const usage = this.aggregateUsage(fulfilled);
 
+        // Combine the angles' summaries in angle order, dropping any empty ones so
+        // we never emit a bare separator with nothing around it.
+        const summary = fulfilled
+            .map((r) => r.content.trim())
+            .filter(Boolean)
+            .join(SUMMARY_ANGLE_SEPARATOR);
+
         this.logger.log(
             `Perplexity company research "${company}" — angles=${fulfilled.length}/${RESEARCH_ANGLES.length} ` +
                 `sources=${sources.length} cost=$${usage.totalCost.toFixed(4)}`,
         );
 
         return {
-            reports: fulfilled.map((r) => ({
-                angle: r.angle,
-                content: r.content,
-            })),
-            sources,
+            summary,
             urls: sources.map((s) => s.url),
             usage,
         };
@@ -292,9 +300,9 @@ export class PerplexityService {
                     role: 'user',
                     content:
                         `Research ${company} for a software engineer preparing to apply. ` +
-                        `Focus on ${angle.focus}. Be specific and cite every claim with a source URL. ` +
-                        `Keep the report concise — aim for under ~200 words, prioritizing specific, ` +
-                        `citable facts over prose.` +
+                        `Focus on ${angle.focus}. Summarize your findings as EXACTLY 5 very detailed ` +
+                        `bullet points — specific, citable facts over prose. ` +
+                        `verify your findings against the following URLs to reduce inaccuracies: ` +
                         verify,
                 },
             ],

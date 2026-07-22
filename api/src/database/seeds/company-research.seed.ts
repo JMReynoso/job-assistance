@@ -1,6 +1,9 @@
 import { CompanyResearch } from '../../entities/companyResearch/entities/company-research.entity';
 import { Seed } from './seed.interface';
 
+/** Between-angle separator — mirrors SUMMARY_ANGLE_SEPARATOR in PerplexityService. */
+const SEP = '\n\n\n\n----------\n\n\n\n';
+
 /**
  * Sample company-research rows so a freshly-migrated database isn't empty in
  * development. Idempotent: inserts only when the table has no rows, so running
@@ -21,37 +24,18 @@ export const companyResearchSeed: Seed = {
             {
                 jobId: 1,
                 company: 'Acme Corp',
-                reports: [
-                    {
-                        angle: 'company-product-funding',
-                        content:
-                            'Acme builds developer tooling for CI/CD and raised a $20M Series A in 2024 led by Example Ventures.',
-                    },
-                    {
-                        angle: 'eng-culture-stack',
-                        content:
-                            'Engineering is TypeScript-heavy (NestJS on the backend, React on the front end) with a strong testing culture.',
-                    },
-                ],
-                sources: [
-                    {
-                        title: 'About Acme',
-                        url: 'https://acme.example.com/about',
-                        date: '2024-03-01',
-                        last_updated: null,
-                        snippet:
-                            'Acme is a developer-tooling company founded in 2019.',
-                        hits: 3,
-                        verified: true,
-                    },
-                    {
-                        title: 'Acme Engineering Blog',
-                        url: 'https://acme.example.com/blog',
-                        date: '2024-05-12',
-                        last_updated: '2024-06-01',
-                        hits: 2,
-                    },
-                ],
+                summary:
+                    '- Acme builds developer tooling for CI/CD.\n' +
+                    '- Mission: help teams ship faster with less toil.\n' +
+                    '- Raised a $20M Series A in 2024 led by Example Ventures.\n' +
+                    '- Founded in 2019; ~120 employees.\n' +
+                    '- Customers are mid-market engineering orgs.' +
+                    SEP +
+                    '- Engineering is TypeScript-heavy (NestJS backend, React frontend).\n' +
+                    '- Strong testing culture with trunk-based development.\n' +
+                    '- Publishes an active engineering blog on scaling CI.\n' +
+                    '- Uses Postgres and Kubernetes in production.\n' +
+                    '- Open-sources several internal libraries.',
                 urls: [
                     'https://acme.example.com/about',
                     'https://acme.example.com/blog',
@@ -66,29 +50,18 @@ export const companyResearchSeed: Seed = {
             {
                 jobId: 2,
                 company: 'Globex',
-                reports: [
-                    {
-                        angle: 'company-product-funding',
-                        content:
-                            'Globex is a bootstrapped analytics SaaS profitable since 2022, serving mid-market retailers.',
-                    },
-                    {
-                        angle: 'news-hiring',
-                        content:
-                            'Globex is actively hiring backend engineers after opening a second office in Austin.',
-                    },
-                ],
-                sources: [
-                    {
-                        title: 'Globex Careers',
-                        url: 'https://globex.example.com/careers',
-                        date: null,
-                        last_updated: null,
-                        snippet: 'Open roles across engineering and data.',
-                        hits: 2,
-                        verified: true,
-                    },
-                ],
+                summary:
+                    '- Globex is a bootstrapped analytics SaaS, profitable since 2022.\n' +
+                    '- Serves mid-market retailers.\n' +
+                    '- Mission: make retail data actionable for small teams.\n' +
+                    '- No outside funding; revenue-funded growth.\n' +
+                    '- Recently opened a second office in Austin.' +
+                    SEP +
+                    '- Backend is Python (FastAPI) with a React frontend.\n' +
+                    '- Data pipeline on top of BigQuery.\n' +
+                    '- Small, senior engineering team with high autonomy.\n' +
+                    '- Blogs occasionally about analytics architecture.\n' +
+                    '- Values pragmatic, well-tested code.',
                 urls: ['https://globex.example.com/careers'],
                 usage: {
                     totalCost: 0.0081,
@@ -100,22 +73,18 @@ export const companyResearchSeed: Seed = {
             {
                 jobId: 3,
                 company: 'Initech',
-                reports: [
-                    {
-                        angle: 'eng-culture-stack',
-                        content:
-                            'Initech runs a legacy Java monolith but is mid-migration to Go microservices on Kubernetes.',
-                    },
-                ],
-                sources: [
-                    {
-                        title: 'Initech Tech Radar',
-                        url: 'https://initech.example.com/tech',
-                        date: '2023-11-20',
-                        last_updated: null,
-                        hits: 1,
-                    },
-                ],
+                summary:
+                    '- Initech builds enterprise workflow software.\n' +
+                    '- Mission: modernize legacy back-office processes.\n' +
+                    '- Long-standing, stable enterprise customer base.\n' +
+                    '- Privately held.\n' +
+                    '- Investing heavily in a platform re-architecture.' +
+                    SEP +
+                    '- Runs a legacy Java monolith, mid-migration to Go microservices.\n' +
+                    '- Deploying on Kubernetes.\n' +
+                    '- Maintains a public tech radar.\n' +
+                    '- Growing focus on automated testing.\n' +
+                    '- Engineering blog covers the migration journey.',
                 urls: ['https://initech.example.com/tech'],
                 usage: {
                     totalCost: 0.0045,
