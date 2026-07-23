@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { BaseRepository } from '../base.repository';
 import { CreateCompanyResearchDto } from './dto/create-company-research.dto';
 import { CompanyResearch } from './entities/company-research.entity';
 import { CompanyResearchResult } from '../../externalAPIs/perplexity/perplexity.types';
@@ -9,21 +10,27 @@ import { CompanyResearchResult } from '../../externalAPIs/perplexity/perplexity.
  * Everything that touches Postgres for this entity lives here. The service
  * layer talks to this class, never to TypeORM's Repository<CompanyResearch>
  * directly — so if the storage layer ever changes, this is the only file that
- * has to.
+ * has to. Error handling comes from {@link BaseRepository}.
  */
 @Injectable()
-export class CompanyResearchRepository {
+export class CompanyResearchRepository extends BaseRepository {
     constructor(
         @InjectRepository(CompanyResearch)
         private readonly repository: Repository<CompanyResearch>,
-    ) {}
+    ) {
+        super();
+    }
 
     findAll(): Promise<CompanyResearch[]> {
-        return this.repository.find({ order: { id: 'ASC' } });
+        return this.run('fetching all company research', () =>
+            this.repository.find({ order: { id: 'ASC' } }),
+        );
     }
 
     findById(id: number): Promise<CompanyResearch | null> {
-        return this.repository.findOneBy({ id });
+        return this.run(`fetching company research ${id}`, () =>
+            this.repository.findOneBy({ id }),
+        );
     }
 
     create(
@@ -36,11 +43,15 @@ export class CompanyResearchRepository {
             ...perplexityResearch,
         });
 
-        return this.repository.save(newCompanyResearch);
+        return this.run(`saving company research for job ${dto.jobId}`, () =>
+            this.repository.save(newCompanyResearch),
+        );
     }
 
     async delete(id: number): Promise<boolean> {
-        const result = await this.repository.delete(id);
+        const result = await this.run(`deleting company research ${id}`, () =>
+            this.repository.delete(id),
+        );
 
         return (result.affected ?? 0) > 0;
     }

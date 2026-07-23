@@ -27,6 +27,8 @@ export class GeneratedContentService {
 
     create(dto: CreateGeneratedContentDto): Promise<GeneratedContent> {
 
+        // TODO: create migration and seeds
+
         // call claude outreach message (returns a string)
 
         // call claude follow up message (returns a string)
