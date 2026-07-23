@@ -26,6 +26,18 @@ export class GeneratedContentService {
     }
 
     create(dto: CreateGeneratedContentDto): Promise<GeneratedContent> {
+
+        // call claude outreach message (returns a string)
+
+        // call claude follow up message (returns a string)
+
+        // call resume tailoring service (returns a json)
+
+        // call method that converts a json to a pdf (fixed Handlebars/React template → Puppeteer → PDF → save to server → return path to file)
+
+        //build DTO with the results of the above calls
+
+
         return this.generatedContentRepository.create(dto);
     }
 
