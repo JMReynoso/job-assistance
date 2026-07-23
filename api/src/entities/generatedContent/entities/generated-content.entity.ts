@@ -44,6 +44,30 @@ export class GeneratedContent {
     @Column({ type: 'text', nullable: true })
     resumePath?: string;
 
+    @ApiProperty({
+        example: 0.0123,
+        description: 'Total cost of generating the outreach message',
+        nullable: true,
+    })
+    @Column({ type: 'float', nullable: true })
+    outreachMessageUsage?: number;
+
+    @ApiProperty({
+        example: 0.0123,
+        description: 'Total cost of generating the follow-up message',
+        nullable: true,
+    })
+    @Column({ type: 'float', nullable: true })
+    followUpMessageUsage?: number;
+
+    @ApiProperty({
+        example: 0.0123,
+        description: 'Total cost of generating the tailored resume',
+        nullable: true,
+    })
+    @Column({ type: 'float', nullable: true })
+    resumeTailoredUsage?: number;
+
     @ApiProperty()
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date;
