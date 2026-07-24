@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { dataSourceOptions } from './database/data-source';
 import { ExampleModule } from './entities/example/example.module';
 import { CompanyResearchModule } from './entities/companyResearch/company-research.module';
+import { GeneratedContentModule } from './entities/generatedContent/generated-content.module';
 
 @Module({
     imports: [
@@ -17,6 +18,7 @@ import { CompanyResearchModule } from './entities/companyResearch/company-resear
         // `synchronize`.
         TypeOrmModule.forRoot(dataSourceOptions),
         CompanyResearchModule,
+        GeneratedContentModule,
     ],
     controllers: [AppController],
 })
