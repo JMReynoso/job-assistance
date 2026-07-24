@@ -10,8 +10,12 @@ import {
     COVER_LETTER_SYSTEM,
     FOLLOWUP_SYSTEM,
     OUTREACH_SYSTEM,
-    RESEARCH_MODEL,
+    MESSAGE_MODEL,
 } from './claude.constants';
+import { costFromUsage } from './claude.pricing';
+
+/** Model used for the resume draft; priced in {@link costFromUsage}. */
+const RESUME_MODEL = 'claude-opus-4-8';
 
 /**
  * The one place that talks to the Claude API. Domain services depend on these
@@ -26,6 +30,8 @@ export interface ClaudeTextResult {
     content: string;
     /** Token usage for the call — for cost tracking. */
     usage: Anthropic.Message['usage'];
+    /** Estimated USD cost of the call, derived from `usage`. */
+    cost: number;
 }
 
 /** Parsed resume JSON Claude produced, plus what the call cost. */
@@ -34,6 +40,8 @@ export interface ClaudeResumeResult {
     resume: Record<string, unknown>;
     /** Token usage for the call — for cost tracking. */
     usage: Anthropic.Message['usage'];
+    /** Estimated USD cost of the call, derived from `usage`. */
+    cost: number;
 }
 
 // Output ceiling for a drafted message. With the company summary (~3k tokens) as
@@ -61,8 +69,8 @@ export class ClaudeService {
     ): Promise<ClaudeResumeResult> {
         try {
             const response = await this.anthropic.messages.create({
-                model: 'claude-opus-4-8',
-                max_tokens: 16000,
+                model: RESUME_MODEL,
+                max_tokens: 12000,
                 // Let Claude decide how much to reason. Add
                 // `output_config: { effort: 'high' }` to push quality further.
                 thinking: { type: 'adaptive' },
@@ -105,6 +113,7 @@ export class ClaudeService {
                 return {
                     resume: JSON.parse(json) as Record<string, unknown>,
                     usage: response.usage,
+                    cost: costFromUsage(RESUME_MODEL, response.usage),
                 };
             } catch {
                 this.logger.error(
@@ -166,7 +175,7 @@ export class ClaudeService {
     }): Promise<ClaudeTextResult> {
         try {
             const response = await this.anthropic.messages.create({
-                model: RESEARCH_MODEL,
+                model: MESSAGE_MODEL,
                 max_tokens: MESSAGE_MAX_TOKENS,
                 // Let Claude decide how much to reason; a short message needs little.
                 thinking: { type: 'adaptive' },
@@ -202,7 +211,11 @@ export class ClaudeService {
                     `out=${response.usage.output_tokens}`,
             );
 
-            return { content, usage: response.usage };
+            return {
+                content,
+                usage: response.usage,
+                cost: costFromUsage(MESSAGE_MODEL, response.usage),
+            };
         } catch (error) {
             if (error instanceof Anthropic.RateLimitError) {
                 this.logger.warn('Anthropic rate limited the request');

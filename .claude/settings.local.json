@@ -14,7 +14,8 @@
       "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\).on\\('end',\\(\\)=>console.log\\(JSON.parse\\(s\\).version\\)\\)\")",
       "Bash(npm run *)",
       "Bash(node -e \"const s=require\\('./package.json'\\).scripts; Object.entries\\(s\\).filter\\(\\([k,v]\\)=>/seed/i.test\\(k\\)||/seed/i.test\\(v\\)\\).forEach\\(\\([k,v]\\)=>console.log\\(k,'=>',v\\)\\)\")",
-      "Bash(echo \"eslint exit: $?\")"
+      "Bash(echo \"eslint exit: $?\")",
+      "Bash(node -e ' *)"
     ]
   }
 }

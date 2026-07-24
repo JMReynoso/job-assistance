@@ -69,6 +69,30 @@ export class GeneratedContent {
     @Column({ type: 'jsonb', nullable: true })
     tailoredResumeUsage?: Anthropic.Message['usage'];
 
+    @ApiProperty({
+        example: 0.0123,
+        description: 'Estimated USD cost of the outreach message call',
+        nullable: true,
+    })
+    @Column({ type: 'float', nullable: true })
+    outreachMessageCost?: number;
+
+    @ApiProperty({
+        example: 0.0123,
+        description: 'Estimated USD cost of the follow-up message call',
+        nullable: true,
+    })
+    @Column({ type: 'float', nullable: true })
+    followupMessageCost?: number;
+
+    @ApiProperty({
+        example: 0.1314,
+        description: 'Estimated USD cost of the tailored resume call',
+        nullable: true,
+    })
+    @Column({ type: 'float', nullable: true })
+    tailoredResumeCost?: number;
+
     @ApiProperty()
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date;

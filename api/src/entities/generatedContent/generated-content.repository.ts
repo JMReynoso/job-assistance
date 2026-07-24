@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DeepPartial, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { BaseRepository } from '../base.repository';
 import { UpdateGeneratedContentDto } from './dto/update-generated-content.dto';
 import { GeneratedContent } from './entities/generated-content.entity';

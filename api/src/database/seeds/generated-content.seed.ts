@@ -44,6 +44,9 @@ export const generatedContentSeed: Seed = {
                     input_tokens: 6100,
                     output_tokens: 3820,
                 },
+                outreachMessageCost: 0.00876,
+                followupMessageCost: 0.00826,
+                tailoredResumeCost: 0.126,
             },
             {
                 jobId: 2,
@@ -69,6 +72,9 @@ export const generatedContentSeed: Seed = {
                     input_tokens: 5600,
                     output_tokens: 3410,
                 },
+                outreachMessageCost: 0.00758,
+                followupMessageCost: 0.00723,
+                tailoredResumeCost: 0.11325,
             },
             {
                 jobId: 3,
@@ -94,6 +100,9 @@ export const generatedContentSeed: Seed = {
                     input_tokens: 5900,
                     output_tokens: 3660,
                 },
+                outreachMessageCost: 0.00826,
+                followupMessageCost: 0.00781,
+                tailoredResumeCost: 0.121,
             },
         ]);
     },

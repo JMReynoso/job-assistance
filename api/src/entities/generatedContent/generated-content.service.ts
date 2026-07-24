@@ -84,8 +84,8 @@ export class GeneratedContentService {
                 `(${Object.keys(tailoredResume.resume).length} sections); PDF generation pending`,
         );
 
-        // Persist the generated row (jobId + Claude output). resumePath and the
-        // *Usage cost columns are filled in later — see the TODOs above.
+        // Persist the generated row (jobId + Claude output). resumePath is filled
+        // in later once the PDF step exists — see the TODO above.
         return this.generatedContentRepository.create({
             jobId,
             outreachMessage: outreach.content,
@@ -94,6 +94,9 @@ export class GeneratedContentService {
             tailoredResumeUsage: tailoredResume.usage,
             outreachMessageUsage: outreach.usage,
             followupMessageUsage: followup.usage,
+            tailoredResumeCost: tailoredResume.cost,
+            outreachMessageCost: outreach.cost,
+            followupMessageCost: followup.cost,
         } as GeneratedContent);
     }
 
