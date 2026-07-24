@@ -28,6 +28,14 @@ export interface ClaudeTextResult {
     usage: Anthropic.Message['usage'];
 }
 
+/** Parsed resume JSON Claude produced, plus what the call cost. */
+export interface ClaudeResumeResult {
+    /** The tailored resume as a structured object (fed to the PDF template). */
+    resume: Record<string, unknown>;
+    /** Token usage for the call — for cost tracking. */
+    usage: Anthropic.Message['usage'];
+}
+
 // Output ceiling for a drafted message. With the company summary (~3k tokens) as
 // input, 1200 output tokens keeps a single message well under $0.04 even at
 // Sonnet 5's post-intro rates ($3/M in, $15/M out ≈ $0.03), and lower today.
@@ -49,8 +57,8 @@ export class ClaudeService {
         masterResume: string,
         jobPosting: string,
         companyWebsite: string,
-        otherURLAboutCompany?: string[],
-    ): Promise<string> {
+        companySummary?: string,
+    ): Promise<ClaudeResumeResult> {
         try {
             const response = await this.anthropic.messages.create({
                 model: 'claude-opus-4-8',
@@ -71,19 +79,41 @@ export class ClaudeService {
                         content: `MASTER RESUME:\n${masterResume}\n\n
               JOB POSTING:\n${jobPosting}\n\n
               COMPANY WEBSITE:\n${companyWebsite}\n\n
-              Other URLs about the company:\n${otherURLAboutCompany?.join('\n') || 'None'}\n\n
+              COMPANY SUMMARY:\n${companySummary || 'None'}\n\n
               Return a one-page resume in json format.`,
                     },
                 ],
             });
 
-            return response.content
+            const text = response.content
                 .filter(
                     (block): block is Anthropic.TextBlock =>
                         block.type === 'text',
                 )
                 .map((block) => block.text)
-                .join('');
+                .join('')
+                .trim();
+
+            // Claude often wraps JSON in a ```json … ``` fence even when asked
+            // for raw JSON, so strip that before parsing.
+            const json = text
+                .replace(/^```(?:json)?\s*/i, '')
+                .replace(/\s*```$/, '')
+                .trim();
+
+            try {
+                return {
+                    resume: JSON.parse(json) as Record<string, unknown>,
+                    usage: response.usage,
+                };
+            } catch {
+                this.logger.error(
+                    `Expected a JSON resume from Claude but parsing failed: ${text.slice(0, 200)}`,
+                );
+                throw new ServiceUnavailableException(
+                    'AI service returned malformed data, please try again',
+                );
+            }
         } catch (error) {
             if (error instanceof Anthropic.RateLimitError) {
                 this.logger.warn('Anthropic rate limited the request');

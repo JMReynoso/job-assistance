@@ -1,0 +1,94 @@
+{
+    "name": "Jane Doe",
+    "contact": {
+        "location": "City, ST",
+        "email": "jane.doe@example.com",
+        "phone": "555-555-0100",
+        "linkedin": "linkedin.com/in/janedoe",
+        "github": "github.com/janedoe",
+        "portfolio": "janedoe.example.com"
+    },
+    "summary": "One- to three-sentence professional summary describing your role, years of experience, core stack, and the kind of impact you deliver. This is passed to the model as context, so write it the way it should read on the resume.",
+    "technical_skills": {
+        "Languages": ["TypeScript", "Python", "SQL"],
+        "Backend & Frameworks": ["Node.js", "NestJS", "Express"],
+        "Frontend & Frameworks": ["React", "Next.js", "Tailwind CSS"],
+        "Databases & Caching": ["PostgreSQL", "Redis"],
+        "Cloud & DevOps": ["AWS", "Docker", "GitHub Actions"],
+        "Testing": ["Jest", "Testcontainers"],
+        "AI & Tooling": ["Ollama (local LLMs)"],
+        "Tools": ["Git", "JIRA", "Postman"],
+        "Practices": ["REST API design", "CI/CD automation", "Agile / Scrum"]
+    },
+    "professional_experience": [
+        {
+            "title": "Senior Software Engineer",
+            "company": "Example Corp",
+            "start_date": "Jan 2023",
+            "end_date": "Present",
+            "date_range": "Jan 2023 – Present",
+            "bullets": [
+                "Describe an accomplishment with a measurable outcome (what you built, the impact, and the numbers).",
+                "Each bullet should start with a strong action verb and focus on results rather than responsibilities."
+            ]
+        },
+        {
+            "title": "Software Engineer",
+            "company": "Sample Inc",
+            "start_date": "Jun 2020",
+            "end_date": "Dec 2022",
+            "date_range": "Jun 2020 – Dec 2022",
+            "bullets": [
+                "Another accomplishment bullet with concrete technologies and impact.",
+                "Keep bullets concise and quantified where possible."
+            ]
+        }
+    ],
+    "projects": [
+        {
+            "name": "Example Project",
+            "context": null,
+            "technologies": ["NestJS", "PostgreSQL", "Docker"],
+            "start_date": "Feb 2024",
+            "end_date": "Present",
+            "date_range": "Feb 2024 – Present",
+            "bullets": [
+                "What the project does and the problem it solves.",
+                "Notable technical decisions and outcomes."
+            ]
+        },
+        {
+            "name": "Another Project",
+            "context": "Example Corp",
+            "technologies": ["React", "TypeScript"],
+            "start_date": "2022",
+            "end_date": "2023",
+            "date_range": "2022 – 2023",
+            "bullets": [
+                "Use `context` for work done under an employer; leave it null for personal projects."
+            ]
+        }
+    ],
+    "certifications": [
+        {
+            "name": "Example Professional Certificate",
+            "issuer": "Provider / Platform",
+            "status": "Certified",
+            "details": [
+                "Optional detail line describing coursework or focus areas."
+            ]
+        }
+    ],
+    "education": [
+        {
+            "degree": "B.S., Computer Science",
+            "institution": "Example University",
+            "start_year": "2016",
+            "end_year": "2020",
+            "date_range": "2016 – 2020",
+            "details": [
+                "Optional detail line (relevant coursework, honors, etc.)."
+            ]
+        }
+    ]
+}

@@ -10,6 +10,6 @@ import { PerplexityModule } from '../../externalAPIs/perplexity/perplexity.modul
     imports: [TypeOrmModule.forFeature([CompanyResearch]), PerplexityModule],
     controllers: [CompanyResearchController],
     providers: [CompanyResearchService, CompanyResearchRepository],
-    exports: [CompanyResearchService],
+    exports: [CompanyResearchService, CompanyResearchRepository],
 })
 export class CompanyResearchModule {}

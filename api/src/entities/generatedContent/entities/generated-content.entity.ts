@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import Anthropic from '@anthropic-ai/sdk';
 import {
     Column,
     CreateDateColumn,
@@ -42,31 +43,31 @@ export class GeneratedContent {
         nullable: true,
     })
     @Column({ type: 'text', nullable: true })
-    resumePath?: string;
+    tailoredResume?: string;
 
     @ApiProperty({
-        example: 0.0123,
-        description: 'Total cost of generating the outreach message',
+        description: 'Token usage for the outreach message call',
+        example: { input_tokens: 1500, output_tokens: 800 },
         nullable: true,
     })
-    @Column({ type: 'float', nullable: true })
-    outreachMessageUsage?: number;
+    @Column({ type: 'jsonb', nullable: true })
+    outreachMessageUsage?: Anthropic.Message['usage'];
 
     @ApiProperty({
-        example: 0.0123,
-        description: 'Total cost of generating the follow-up message',
+        description: 'Token usage for the follow-up message call',
+        example: { input_tokens: 1500, output_tokens: 800 },
         nullable: true,
     })
-    @Column({ type: 'float', nullable: true })
-    followUpMessageUsage?: number;
+    @Column({ type: 'jsonb', nullable: true })
+    followupMessageUsage?: Anthropic.Message['usage'];
 
     @ApiProperty({
-        example: 0.0123,
-        description: 'Total cost of generating the tailored resume',
+        description: 'Token usage for the tailored resume call',
+        example: { input_tokens: 6000, output_tokens: 4000 },
         nullable: true,
     })
-    @Column({ type: 'float', nullable: true })
-    resumeTailoredUsage?: number;
+    @Column({ type: 'jsonb', nullable: true })
+    tailoredResumeUsage?: Anthropic.Message['usage'];
 
     @ApiProperty()
     @CreateDateColumn({ name: 'created_at' })

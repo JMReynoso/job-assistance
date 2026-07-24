@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DeepPartial, Repository } from 'typeorm';
 import { BaseRepository } from '../base.repository';
-import { CreateGeneratedContentDto } from './dto/create-generated-content.dto';
 import { UpdateGeneratedContentDto } from './dto/update-generated-content.dto';
 import { GeneratedContent } from './entities/generated-content.entity';
 
@@ -33,8 +32,8 @@ export class GeneratedContentRepository extends BaseRepository {
         );
     }
 
-    create(dto: CreateGeneratedContentDto): Promise<GeneratedContent> {
-        const generatedContent = this.repository.create(dto);
+    create(data: GeneratedContent): Promise<GeneratedContent> {
+        const generatedContent = this.repository.create(data);
         return this.run('saving new generated content', () =>
             this.repository.save(generatedContent),
         );

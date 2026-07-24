@@ -2,3 +2,8 @@
 # OS/editor cruft) live in the root .gitignore.
 
 /test/dist
+
+# Personal CV data — the real resume holds sensitive info (name, contact,
+# history). Copy resume.example.json → resume.json locally; only the example
+# is committed.
+/src/CV/resume.json

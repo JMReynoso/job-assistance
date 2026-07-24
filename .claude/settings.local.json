@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('src/CV/resume.json','utf8'\\)\\); console.log\\('valid JSON, bytes:', require\\('fs'\\).statSync\\('src/CV/resume.json'\\).size\\)\")",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('type:', p.type||'\\(none=commonjs\\)'\\); console.log\\('start:', p.scripts.start, '| start:dev:', p.scripts['start:dev']\\)\")",
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)",
+      "Bash(echo \"=== eslint exit: $? ===\")",
+      "Bash(node -e \"const s=require\\('./package.json'\\).scripts; Object.entries\\(s\\).filter\\(\\([k]\\)=>/migrat|typeorm|db|datasource/i.test\\(k\\)\\).forEach\\(\\([k,v]\\)=>console.log\\(k,'=>',v\\)\\)\")",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('typeorm:', \\(p.dependencies||{}\\).typeorm, '| @nestjs/typeorm:', \\(p.dependencies||{}\\)['@nestjs/typeorm']\\)\")",
+      "Bash(node -e \"console.log\\(require\\('typeorm/package.json'\\).version\\)\")",
+      "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\).on\\('end',\\(\\)=>console.log\\(JSON.parse\\(s\\).version\\)\\)\")",
+      "Bash(npm run *)",
+      "Bash(node -e \"const s=require\\('./package.json'\\).scripts; Object.entries\\(s\\).filter\\(\\([k,v]\\)=>/seed/i.test\\(k\\)||/seed/i.test\\(v\\)\\).forEach\\(\\([k,v]\\)=>console.log\\(k,'=>',v\\)\\)\")",
+      "Bash(echo \"eslint exit: $?\")"
+    ]
+  }
+}

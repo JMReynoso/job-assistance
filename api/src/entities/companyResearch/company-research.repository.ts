@@ -33,6 +33,19 @@ export class CompanyResearchRepository extends BaseRepository {
         );
     }
 
+    /**
+     * Fetches the most recent research run for a job. A job can be researched
+     * more than once, so order by id DESC and take the latest.
+     */
+    findByJobId(jobId: number): Promise<CompanyResearch | null> {
+        return this.run(`fetching company research for job ${jobId}`, () =>
+            this.repository.findOne({
+                where: { jobId },
+                order: { id: 'DESC' },
+            }),
+        );
+    }
+
     create(
         dto: CreateCompanyResearchDto,
         perplexityResearch: CompanyResearchResult,

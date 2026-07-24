@@ -2,10 +2,11 @@ import { Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { exampleSeed } from './example.seed';
 import { companyResearchSeed } from './company-research.seed';
+import { generatedContentSeed } from './generated-content.seed';
 import { Seed } from './seed.interface';
 
 // Register seeds here, in the order they should run.
-const seeds: Seed[] = [exampleSeed, companyResearchSeed];
+const seeds: Seed[] = [exampleSeed, companyResearchSeed, generatedContentSeed];
 
 /**
  * Runs every registered seed against the given DataSource. Called on app
