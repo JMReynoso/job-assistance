@@ -47,6 +47,9 @@ services:
       # deleteOutDir:false — otherwise `nest start --watch` errors trying to
       # rmdir it (EBUSY).
       - /app/dist
+      # Generated resume PDFs. Named volume at RESUME_STORAGE_DIR (set in
+      # Dockerfile.dev) so they persist and stay off the ../api bind mount.
+      - resume-storage:/app/storage/resumes
     depends_on:
       - postgres
 
@@ -89,6 +92,8 @@ volumes:
     name: job-assistant-dev-postgres-data
   pgadmin-data:
     name: job-assistant-dev-pgadmin-data
+  resume-storage:
+    name: job-assistant-dev-resume-storage
 
 networks:
   default:

@@ -1,12 +1,19 @@
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { ClaudeService } from '../../externalAPIs/claude/claude.service';
+import {
+    ClaudeResumeResult,
+    ClaudeService,
+    ClaudeTextResult,
+} from '../../externalAPIs/claude/claude.service';
 import { CompanyResearchRepository } from '../companyResearch/company-research.repository';
+import { CompanyResearch } from '../companyResearch/entities/company-research.entity';
+import { JobsService } from '../jobs/jobs.service';
 import { CreateGeneratedContentDto } from './dto/create-generated-content.dto';
 import { UpdateGeneratedContentDto } from './dto/update-generated-content.dto';
 import { GeneratedContent } from './entities/generated-content.entity';
 import { GeneratedContentRepository } from './generated-content.repository';
+import { ResumePdfService } from './resume-pdf/resume-pdf.service';
 
 @Injectable()
 export class GeneratedContentService {
@@ -16,6 +23,8 @@ export class GeneratedContentService {
         private readonly generatedContentRepository: GeneratedContentRepository,
         private readonly claudeService: ClaudeService,
         private readonly companyResearchRepository: CompanyResearchRepository,
+        private readonly resumePdfService: ResumePdfService,
+        private readonly jobsService: JobsService,
     ) {}
 
     findAll(): Promise<GeneratedContent[]> {
@@ -34,63 +43,71 @@ export class GeneratedContentService {
     }
 
     async create(dto: CreateGeneratedContentDto): Promise<GeneratedContent> {
-        // TODO: create initial migration and seeds for generatedContent table
-
         // The master CV lives at src/CV/resume.json. Read it as raw text (not
         // imported): it's passed to Claude as context, so it needn't be valid
         // JSON, and reading at runtime keeps it out of the compiled bundle.
-        const masterResume = await readFile(
+        const masterResume: string = await readFile(
             join(process.cwd(), 'src/CV/resume.json'),
             'utf-8',
         );
 
-        const jobId = dto.jobId;
-        const jobPosting = dto.jobPosting;
-        const companyWebsite = dto.companyWebsite;
+        const jobId: number = dto.jobId;
+        const jobPosting: string = dto.jobPosting;
+        const companyWebsite: string = dto.companyWebsite;
+
+        // Company name for the resume PDF file name: prefer the request, else
+        // fall back to the Job record (findOne 404s if the job is missing).
+        const companyName: string =
+            dto.companyName ??
+            (await this.jobsService.findOne(jobId)).companyName;
 
         // The outreach / follow-up / resume prompts all work from the stored
         // company research. Pull the latest run for this job; without it there's
         // nothing to personalize from, so treat a miss as a 404.
-        const companyResearch =
+        const companyResearch: CompanyResearch | null =
             await this.companyResearchRepository.findByJobId(jobId);
         if (!companyResearch) {
             throw new NotFoundException(
                 `No company research found for job ${jobId}`,
             );
         }
-        const companySummary = companyResearch.summary;
+        const companySummary: string = companyResearch.summary;
 
         // call claude outreach message (returns a string)
-        const outreach =
+        const outreach: ClaudeTextResult =
             await this.claudeService.draftOutreachMessage(companySummary);
 
         // call claude follow up message (returns a string)
-        const followup =
+        const followup: ClaudeTextResult =
             await this.claudeService.draftFollowUpMessage(companySummary);
 
         // call resume tailoring service (returns a json)
-        const tailoredResume = await this.claudeService.draftResume(
-            masterResume,
-            jobPosting,
-            companyWebsite,
-            companySummary,
-        );
+        const tailoredResume: ClaudeResumeResult =
+            await this.claudeService.draftResume(
+                masterResume,
+                jobPosting,
+                companyWebsite,
+                companySummary,
+            );
 
-        // call method that converts a json to a pdf (fixed Handlebars/React template → Puppeteer → PDF → save to server → return path to file)
-        // TODO: implement Handlebars + Puppeteer; it consumes `tailoredResume`
-        // and returns the saved PDF path (→ resumePath). Deferred until then.
+        // Render the tailored resume JSON to a PDF (Handlebars → Puppeteer),
+        // saved to the storage volume; the stored file name goes on the row.
+        const resumePath: string = await this.resumePdfService.renderResume(
+            tailoredResume.resume,
+            companyName,
+            jobId,
+        );
         this.logger.log(
-            `Tailored resume drafted for job ${dto.jobId} ` +
-                `(${Object.keys(tailoredResume.resume).length} sections); PDF generation pending`,
+            `Tailored resume rendered for job ${jobId} ` +
+                `(${Object.keys(tailoredResume.resume).length} sections) → ${resumePath}`,
         );
 
-        // Persist the generated row (jobId + Claude output). resumePath is filled
-        // in later once the PDF step exists — see the TODO above.
+        // Persist the generated row (jobId + Claude output).
         return this.generatedContentRepository.create({
             jobId,
             outreachMessage: outreach.content,
             followupMessage: followup.content,
-            tailoredResume: 'path',
+            tailoredResume: resumePath,
             tailoredResumeUsage: tailoredResume.usage,
             outreachMessageUsage: outreach.usage,
             followupMessageUsage: followup.usage,

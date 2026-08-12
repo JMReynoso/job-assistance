@@ -7,3 +7,7 @@
 # history). Copy resume.example.json → resume.json locally; only the example
 # is committed.
 /src/CV/resume.json
+
+# Generated resume PDFs. In Docker these live on a named volume; for local,
+# non-Docker runs they land here (RESUME_STORAGE_DIR).
+/storage

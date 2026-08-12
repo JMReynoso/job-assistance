@@ -15,7 +15,12 @@
       "Bash(npm run *)",
       "Bash(node -e \"const s=require\\('./package.json'\\).scripts; Object.entries\\(s\\).filter\\(\\([k,v]\\)=>/seed/i.test\\(k\\)||/seed/i.test\\(v\\)\\).forEach\\(\\([k,v]\\)=>console.log\\(k,'=>',v\\)\\)\")",
       "Bash(echo \"eslint exit: $?\")",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); const d={...p.dependencies,...p.devDependencies}; ['puppeteer','puppeteer-core','handlebars','react','react-dom','@nestjs/config','@nestjs/platform-express','multer','uuid'].forEach\\(k=>console.log\\(k, d[k]||'—'\\)\\)\")",
+      "Bash(npm install *)",
+      "Bash(node -e \"const p=require\\('./package.json'\\).dependencies; console.log\\('puppeteer-core:', p['puppeteer-core'], '| handlebars:', p['handlebars']\\)\")",
+      "Bash(echo \"build exit: $?\")",
+      "Bash(node /private/tmp/claude-501/-Users-justin-Documents-job-assistance/226c759e-013c-486f-831e-5a4ac89441d7/scratchpad/preview.js)"
     ]
   }
 }

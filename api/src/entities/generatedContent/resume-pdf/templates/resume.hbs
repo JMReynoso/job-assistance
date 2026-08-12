@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+                color: #000;
+                font-size: 10.5px;
+                line-height: 1.35;
+            }
+
+            /* Header */
+            header {
+                text-align: center;
+                margin-bottom: 10px;
+            }
+            .name {
+                font-size: 20px;
+                font-weight: 700;
+                letter-spacing: 1px;
+                text-transform: uppercase;
+            }
+            .contact {
+                font-size: 10px;
+                margin-top: 3px;
+            }
+            .contact a {
+                color: inherit;
+                text-decoration: underline;
+            }
+            .contact span:not(:last-child)::after {
+                content: ' | ';
+                text-decoration: none;
+            }
+
+            /* Sections */
+            section {
+                margin-top: 10px;
+            }
+            h2 {
+                font-size: 11px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                border-bottom: 1px solid #000;
+                padding-bottom: 1px;
+                margin-bottom: 5px;
+            }
+
+            /* Skills */
+            .skill-row {
+                margin-bottom: 2px;
+            }
+            .skill-cat {
+                font-weight: 700;
+            }
+
+            /* Entries (experience / projects) */
+            .entry {
+                margin-bottom: 7px;
+            }
+            .entry-head {
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                gap: 12px;
+            }
+            .entry-title {
+                font-weight: 700;
+            }
+            .entry-sub {
+                font-style: italic;
+            }
+            .entry-date {
+                white-space: nowrap;
+            }
+            ul {
+                list-style: disc;
+                margin: 2px 0 0 16px;
+            }
+            li {
+                margin-bottom: 1px;
+                padding-left: 2px;
+            }
+
+            /* Single-line entries (certifications / education) */
+            .entry-solo {
+                margin-bottom: 4px;
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <div class="name">{{name}}</div>
+            <div class="contact">
+                {{#if contact.location}}<span>{{contact.location}}</span>{{/if}}
+                {{#if contact.email}}<span><a href="mailto:{{contact.email}}">{{contact.email}}</a></span>{{/if}}
+                {{#if contact.phone}}<span>{{contact.phone}}</span>{{/if}}
+            </div>
+            <div class="contact">
+                {{#if contact.linkedin}}<span><a href="https://{{contact.linkedin}}">{{contact.linkedin}}</a></span>{{/if}}
+                {{#if contact.github}}<span><a href="https://{{contact.github}}">{{contact.github}}</a></span>{{/if}}
+                {{#if contact.portfolio}}<span><a href="https://{{contact.portfolio}}">{{contact.portfolio}}</a></span>{{/if}}
+            </div>
+        </header>
+
+        {{#if summary}}
+        <section>
+            <h2>Summary</h2>
+            <p>{{summary}}</p>
+        </section>
+        {{/if}}
+
+        {{#if technical_skills}}
+        <section>
+            <h2>Technical Skills</h2>
+            {{#each technical_skills}}
+            <div class="skill-row">
+                <span class="skill-cat">{{@key}}:</span> {{join this ', '}}
+            </div>
+            {{/each}}
+        </section>
+        {{/if}}
+
+        {{#if professional_experience}}
+        <section>
+            <h2>Professional Experience</h2>
+            {{#each professional_experience}}
+            <div class="entry">
+                <div class="entry-head">
+                    <span>
+                        <span class="entry-title">{{title}}</span>
+                        {{#if company}} | <span class="entry-sub">{{company}}</span>{{/if}}
+                    </span>
+                    <span class="entry-date">{{date_range}}</span>
+                </div>
+                {{#if bullets}}
+                <ul>
+                    {{#each bullets}}<li>{{this}}</li>{{/each}}
+                </ul>
+                {{/if}}
+            </div>
+            {{/each}}
+        </section>
+        {{/if}}
+
+        {{#if projects}}
+        <section>
+            <h2>Projects</h2>
+            {{#each projects}}
+            <div class="entry">
+                <div class="entry-head">
+                    <span>
+                        <span class="entry-title">{{name}}</span>
+                        {{#if context}} | <span class="entry-sub">{{context}}</span>{{/if}}
+                        {{#if technologies}} | <span class="entry-sub">{{join technologies ', '}}</span>{{/if}}
+                    </span>
+                    <span class="entry-date">{{date_range}}</span>
+                </div>
+                {{#if bullets}}
+                <ul>
+                    {{#each bullets}}<li>{{this}}</li>{{/each}}
+                </ul>
+                {{/if}}
+            </div>
+            {{/each}}
+        </section>
+        {{/if}}
+
+        {{#if certifications}}
+        <section>
+            <h2>Certifications</h2>
+            {{#each certifications}}
+            <div class="entry-head entry-solo">
+                <span>
+                    <span class="entry-title">{{name}}</span>
+                    {{#if issuer}} | <span class="entry-sub">{{issuer}}</span>{{/if}}
+                </span>
+                {{#if status}}<span class="entry-date">{{status}}</span>{{/if}}
+            </div>
+            {{/each}}
+        </section>
+        {{/if}}
+
+        {{#if education}}
+        <section>
+            <h2>Education</h2>
+            {{#each education}}
+            <div class="entry-head entry-solo">
+                <span>
+                    <span class="entry-title">{{degree}}</span>
+                    {{#if institution}} | <span class="entry-sub">{{institution}}</span>{{/if}}
+                </span>
+                <span class="entry-date">{{date_range}}</span>
+            </div>
+            {{/each}}
+        </section>
+        {{/if}}
+    </body>
+</html>

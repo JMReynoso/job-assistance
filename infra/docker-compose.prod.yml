@@ -32,6 +32,10 @@ services:
       # come through the environment. Empty default keeps prod bootable when
       # AI features aren't in use.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    volumes:
+      # Generated resume PDFs. Named volume at RESUME_STORAGE_DIR (set in the
+      # Dockerfile) so they survive container rebuilds.
+      - resume-storage:/app/storage/resumes
     depends_on:
       - postgres
     restart: unless-stopped
@@ -59,6 +63,8 @@ volumes:
   # ever run on the same Docker host.
   postgres-data:
     name: job-assistant-prod-postgres-data
+  resume-storage:
+    name: job-assistant-prod-resume-storage
 
 networks:
   default:
