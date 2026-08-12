@@ -20,7 +20,26 @@
       "Bash(npm install *)",
       "Bash(node -e \"const p=require\\('./package.json'\\).dependencies; console.log\\('puppeteer-core:', p['puppeteer-core'], '| handlebars:', p['handlebars']\\)\")",
       "Bash(echo \"build exit: $?\")",
-      "Bash(node /private/tmp/claude-501/-Users-justin-Documents-job-assistance/226c759e-013c-486f-831e-5a4ac89441d7/scratchpad/preview.js)"
+      "Bash(node /private/tmp/claude-501/-Users-justin-Documents-job-assistance/226c759e-013c-486f-831e-5a4ac89441d7/scratchpad/preview.js)",
+      "WebFetch(domain:hunter.io)",
+      "Bash(echo \"tsc exit: $?\")",
+      "Bash(perl -pi -e 's{api/src/hunter/}{api/src/externalAPIs/hunter/}g' docs/hunter-api.md)",
+      "Bash(open -a Docker)",
+      "Bash(docker system *)",
+      "Bash(docker compose *)",
+      "Bash(docker rm *)",
+      "Bash(docker exec *)",
+      "Bash(curl -s -w \"\\\\nHTTP %{http_code}\\\\n\" -X POST http://localhost:4001/contacts -H 'Content-Type: application/json' -d '{\"jobId\":1,\"companyPageUrl\":\"https://www.stripe.com/jobs/search?q=backend\",\"limit\":5}')",
+      "Bash(curl -s -o /dev/null -w \"re-run HTTP %{http_code}\\\\n\" -X POST http://localhost:4001/contacts -H 'Content-Type: application/json' -d '{\"jobId\":1,\"companyPageUrl\":\"stripe.com\",\"limit\":5}')",
+      "Bash(curl -s -w \"\\\\nHTTP %{http_code}\\\\n\" -X POST http://localhost:4001/contacts -H 'Content-Type: application/json' -d '{\"jobId\":1,\"companyPageUrl\":\"not a url\",\"limit\":5}')",
+      "Bash(curl -s -w \"\\\\nHTTP %{http_code}\\\\n\" -X POST http://localhost:4001/contacts -H 'Content-Type: application/json' -d '{\"jobId\":1,\"companyPageUrl\":\"https://stripe.com\",\"limit\":500}')",
+      "Bash(curl -s -w \"\\\\nHTTP %{http_code}\\\\n\" -X PATCH http://localhost:4001/contacts/5 -H 'Content-Type: application/json' -d '{\"position\":\"Founder & CEO\"}')",
+      "Bash(curl -s -w \"\\\\nHTTP %{http_code}\\\\n\" -X PATCH http://localhost:4001/contacts/5 -H 'Content-Type: application/json' -d '{\"jobId\":99}')",
+      "Bash(curl -s -w \"\\\\nHTTP %{http_code}\\\\n\" http://localhost:4001/contacts/999)",
+      "Bash(curl -sf http://localhost:4001/health)",
+      "Bash(curl -s http://localhost:4001/contacts)",
+      "Bash(curl -s -w \" HTTP %{http_code}\\\\n\" http://localhost:4001/contacts/5)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" -X POST http://localhost:4001/contacts -H 'Content-Type: application/json' -d '{\"jobId\":1,\"companyPageUrl\":\"https://stripe.com\",\"limit\":5}')"
     ]
   }
 }

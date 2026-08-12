@@ -4,15 +4,17 @@ import { exampleSeed } from './example.seed';
 import { jobsSeed } from './jobs.seed';
 import { companyResearchSeed } from './company-research.seed';
 import { generatedContentSeed } from './generated-content.seed';
+import { contactsSeed } from './contacts.seed';
 import { Seed } from './seed.interface';
 
 // Register seeds here, in the order they should run. Jobs come before
-// company_research / generated_content, which reference jobs by jobId.
+// company_research / generated_content / contacts, which reference jobs by jobId.
 const seeds: Seed[] = [
     exampleSeed,
     jobsSeed,
     companyResearchSeed,
     generatedContentSeed,
+    contactsSeed,
 ];
 
 /**

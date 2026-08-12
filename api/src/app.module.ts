@@ -6,6 +6,7 @@ import { dataSourceOptions } from './database/data-source';
 import { ExampleModule } from './entities/example/example.module';
 import { CompanyResearchModule } from './entities/companyResearch/company-research.module';
 import { GeneratedContentModule } from './entities/generatedContent/generated-content.module';
+import { ContactsModule } from './entities/contacts/contacts.module';
 
 @Module({
     imports: [
@@ -19,6 +20,7 @@ import { GeneratedContentModule } from './entities/generatedContent/generated-co
         TypeOrmModule.forRoot(dataSourceOptions),
         CompanyResearchModule,
         GeneratedContentModule,
+        ContactsModule,
     ],
     controllers: [AppController],
 })

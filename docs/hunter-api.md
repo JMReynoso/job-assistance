@@ -19,7 +19,7 @@ Your controller  →  your service  →  HunterService  →  HunterClient  →  
                               that knows about Hunter
 ```
 
-The important idea: **only [`HunterService`](../api/src/hunter/hunter.service.ts) knows how to talk to Hunter.** The rest of the app just calls it — the same way it talks to the database only through repositories.
+The important idea: **only [`HunterService`](../api/src/externalAPIs/hunter/hunter.service.ts) knows how to talk to Hunter.** The rest of the app just calls it — the same way it talks to the database only through repositories.
 
 ---
 
@@ -28,9 +28,9 @@ The important idea: **only [`HunterService`](../api/src/hunter/hunter.service.ts
 | Piece | File | What it is (plain terms) |
 | --- | --- | --- |
 | **API key** | `HUNTER_API_KEY` (env var) | Your password to Hunter. Every request includes it. Kept out of the code. |
-| **The client provider** | [hunter.provider.ts](../api/src/hunter/hunter.provider.ts) | Builds **one** HTTP client (a thin `fetch` wrapper, since there's no npm SDK) from your API key, in a single place — the same shape as Claude's provider. |
-| **HunterService** | [hunter.service.ts](../api/src/hunter/hunter.service.ts) | Your friendly wrapper. Has two methods: `domainSearch(...)` and `findEmail(...)`. |
-| **HunterModule** | [hunter.module.ts](../api/src/hunter/hunter.module.ts) | A NestJS bundle so other parts of the app can use `HunterService`. |
+| **The client provider** | [hunter.provider.ts](../api/src/externalAPIs/hunter/hunter.provider.ts) | Builds **one** HTTP client (a thin `fetch` wrapper, since there's no npm SDK) from your API key, in a single place — the same shape as Claude's provider. |
+| **HunterService** | [hunter.service.ts](../api/src/externalAPIs/hunter/hunter.service.ts) | Your friendly wrapper. Has two methods: `domainSearch(...)` and `findEmail(...)`. |
+| **HunterModule** | [hunter.module.ts](../api/src/externalAPIs/hunter/hunter.module.ts) | A NestJS bundle so other parts of the app can use `HunterService`. |
 
 You'll spend almost all your time in just one of these: **HunterService**.
 
@@ -68,7 +68,7 @@ Three steps. Say you have a `JobsService` and you want it to find contacts at a 
 
 ```ts
 import { Module } from '@nestjs/common';
-import { HunterModule } from '../../hunter/hunter.module';
+import { HunterModule } from '../../externalAPIs/hunter/hunter.module';
 import { JobsService } from './jobs.service';
 
 @Module({
@@ -82,7 +82,7 @@ export class JobsModule {}
 
 ```ts
 import { Injectable } from '@nestjs/common';
-import { HunterService } from '../../hunter/hunter.service';
+import { HunterService } from '../../externalAPIs/hunter/hunter.service';
 
 @Injectable()
 export class JobsService {
@@ -106,6 +106,8 @@ async findRecruiters(companyDomain: string) {
 ```
 
 That's it. Your service never touches `fetch` or the Hunter URL — it just asks `HunterService`.
+
+> **A real example:** [`ContactsService.create()`](../api/src/entities/contacts/contacts.service.ts) does exactly this — it turns a company website into a domain, runs a `personal`-only domain search, and saves the results as `contacts` rows against a job.
 
 ---
 
@@ -237,8 +239,8 @@ if (!found.email) {
 
 | Path | What it is |
 | --- | --- |
-| [api/src/hunter/hunter.provider.ts](../api/src/hunter/hunter.provider.ts) | Builds the Hunter HTTP client from the API key (token + `fetch` wrapper) |
-| [api/src/hunter/hunter.service.ts](../api/src/hunter/hunter.service.ts) | The wrapper you call (`HunterService`) — add methods here |
-| [api/src/hunter/hunter.module.ts](../api/src/hunter/hunter.module.ts) | The NestJS module to import into your feature modules |
+| [api/src/externalAPIs/hunter/hunter.provider.ts](../api/src/externalAPIs/hunter/hunter.provider.ts) | Builds the Hunter HTTP client from the API key (token + `fetch` wrapper) |
+| [api/src/externalAPIs/hunter/hunter.service.ts](../api/src/externalAPIs/hunter/hunter.service.ts) | The wrapper you call (`HunterService`) — add methods here |
+| [api/src/externalAPIs/hunter/hunter.module.ts](../api/src/externalAPIs/hunter/hunter.module.ts) | The NestJS module to import into your feature modules |
 | [api/.env](../api/.env) | Your local config, including `HUNTER_API_KEY` (not committed to git) |
 | [api/.env.example](../api/.env.example) | Template listing the env vars the api needs |

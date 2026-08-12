@@ -11,9 +11,9 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ContactsService } from './contacts.service';
-import { CreateContactsDto } from './dto/create-contacts.dto';
-import { UpdateContactsDto } from './dto/update-contacts.dto';
-import { Contacts } from './entities/contacts.entity';
+import { CreateContactDto } from './dto/create-contact.dto';
+import { UpdateContactDto } from './dto/update-contact.dto';
+import { Contact } from './entities/contact.entity';
 
 @ApiTags('contacts')
 @Controller('contacts')
@@ -21,14 +21,27 @@ export class ContactsController {
     constructor(private readonly contactsService: ContactsService) {}
 
     @Post()
-    @ApiOperation({ summary: 'Create a new contact' })
+    @ApiOperation({
+        summary: 'Find contacts at a company and save them to a job',
+        description:
+            "Runs a Hunter.io domain search against the company's website and " +
+            'stores everyone it finds against the job. Re-running refreshes the ' +
+            'existing contacts rather than duplicating them, and a company ' +
+            'Hunter has no data for returns an empty list.',
+    })
     @ApiResponse({
         status: 201,
-        description: 'The created contact.',
-        type: Contacts,
+        description: 'Every contact now on the job, most reachable first.',
+        type: Contact,
+        isArray: true,
     })
-    create(@Body() createContactsDto: CreateContactsDto) {
-        return this.contactsService.create(createContactsDto);
+    @ApiResponse({ status: 400, description: 'The company URL is unusable.' })
+    @ApiResponse({
+        status: 503,
+        description: 'Hunter.io is busy or unreachable; try again shortly.',
+    })
+    create(@Body() createContactDto: CreateContactDto) {
+        return this.contactsService.create(createContactDto);
     }
 
     @Get()
@@ -36,7 +49,7 @@ export class ContactsController {
     @ApiResponse({
         status: 200,
         description: 'The list of contacts.',
-        type: Contacts,
+        type: Contact,
         isArray: true,
     })
     findAll() {
@@ -49,7 +62,7 @@ export class ContactsController {
     @ApiResponse({
         status: 200,
         description: 'The matching contact.',
-        type: Contacts,
+        type: Contact,
     })
     @ApiResponse({ status: 404, description: 'No contact with that id.' })
     findOne(@Param('id') id: string) {
@@ -62,14 +75,14 @@ export class ContactsController {
     @ApiResponse({
         status: 200,
         description: 'The updated contact.',
-        type: Contacts,
+        type: Contact,
     })
     @ApiResponse({ status: 404, description: 'No contact with that id.' })
     update(
         @Param('id') id: string,
-        @Body() updateContactsDto: UpdateContactsDto,
+        @Body() updateContactDto: UpdateContactDto,
     ) {
-        return this.contactsService.update(+id, updateContactsDto);
+        return this.contactsService.update(+id, updateContactDto);
     }
 
     @Delete(':id')
