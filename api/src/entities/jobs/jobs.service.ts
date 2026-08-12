@@ -20,25 +20,7 @@ export class JobsService {
         return job;
     }
 
-    //TODO: implement
     create(dto: CreateJobDto): Promise<Job> {
-        // create dto
-
-        // call perplexity.ai API calls
-
-        // call claude API
-        // create summary based on research
-
-        // create outreach message
-
-        // create follow-up message
-
-        // tailor resume on high effort (opus)
-
-        // hunter.io API calls
-        // search hiring manager / tallent / recruiter based on research
-        // place contacts in table
-
         return this.jobsRepository.create(dto);
     }
 

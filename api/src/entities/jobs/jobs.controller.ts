@@ -75,9 +75,9 @@ export class JobsController {
 
     @Delete(':id')
     @HttpCode(HttpStatus.NO_CONTENT)
-    @ApiOperation({ summary: 'Delete an example' })
+    @ApiOperation({ summary: 'Delete a job' })
     @ApiParam({ name: 'id', type: Number })
-    @ApiResponse({ status: 204, description: 'The example was deleted.' })
+    @ApiResponse({ status: 204, description: 'The job was deleted.' })
     @ApiResponse({ status: 404, description: 'No job with that id.' })
     remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
         return this.jobsService.remove(id);

@@ -9,39 +9,58 @@ import {
 import { Status } from './enum/status.enum';
 
 /**
- * Dummy entity. This is a template — copy this folder's shape
- * (entity / dto / repository / service / controller / module) for real ones.
+ * A job the user is tracking: the company, the posting and research URLs, and
+ * where it sits in the application pipeline (`status`). CompanyResearch and
+ * GeneratedContent rows reference a job by `jobId`.
  */
-@Entity({ name: 'examples' })
+@Entity({ name: 'jobs' })
 export class Job {
     @ApiProperty({ example: 1, description: 'Auto-generated primary key' })
     @PrimaryGeneratedColumn()
     id: number;
 
-    @ApiProperty({ example: 'Sample widget' })
+    @ApiProperty({
+        example: 'Acme Corp',
+        description: 'Company the job is with',
+    })
     @Column({ type: 'text' })
     companyName: string;
 
     @ApiProperty({
-        example: 'A short description of the widget.',
+        example: 'https://boards.greenhouse.io/acme/jobs/123456',
+        description: 'URL of the original job posting',
     })
     @Column({ type: 'text' })
     jobPostingURL: string;
 
-    @ApiProperty({ example: 'Sample widget' })
+    @ApiProperty({
+        example: 'https://www.acme.com',
+        description: "Company's main website",
+    })
     @Column({ type: 'text' })
     companyPage: string;
 
-    @ApiProperty({ example: 'Sample widget' })
+    @ApiProperty({
+        example: 'https://www.linkedin.com/company/acme-corp',
+        description: "Company's LinkedIn page",
+    })
     @Column({ type: 'text' })
     companyLinkedIn: string;
 
-    @ApiProperty({ example: 'Sample widget' })
+    @ApiProperty({
+        example: 'https://www.crunchbase.com/organization/acme-corp',
+        description: 'Any additional relevant URL',
+        nullable: true,
+    })
     @Column({ type: 'text', nullable: true })
     extraURLs?: string;
 
-    @ApiProperty({ example: 'Sample widget' })
-    @Column({ type: 'text' })
+    @ApiProperty({
+        enum: Status,
+        example: Status.NOT_APPLIED,
+        description: 'Where the job sits in the application pipeline',
+    })
+    @Column({ type: 'text', default: Status.NOT_APPLIED })
     status: Status;
 
     @ApiProperty()

@@ -7,9 +7,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * so it applies cleanly to any existing rows, then the default is dropped to match
  * the entity (NOT NULL, no default).
  */
-export class CompanyResearchSummaryColumn1784468000000
-    implements MigrationInterface
-{
+export class CompanyResearchSummaryColumn1784468000000 implements MigrationInterface {
     name = 'CompanyResearchSummaryColumn1784468000000';
 
     public async up(queryRunner: QueryRunner): Promise<void> {
