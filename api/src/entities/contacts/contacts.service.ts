@@ -20,7 +20,15 @@ export class ContactsService {
         return contacts;
     }
 
+    // TODO: implement
     create(dto: CreateContactsDto): Promise<Contacts> {
+
+        // call hunter.io API (returns a list of contacts for a given company domain)
+
+        //parse the json?
+
+        // create DTO to pass to the repository to create a new contact in the database
+        
         return this.contactsRepository.create(dto);
     }
 
