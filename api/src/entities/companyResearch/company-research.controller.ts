@@ -1,9 +1,19 @@
-import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import {
+    Body,
+    Controller,
+    Delete,
+    Get,
+    HttpCode,
+    HttpStatus,
+    Param,
+    Post,
+} from '@nestjs/common';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CompanyResearchService } from './company-research.service';
 import { CreateCompanyResearchDto } from './dto/create-company-research.dto';
 import { CompanyResearch } from './entities/company-research.entity';
 
+@ApiTags('company-research')
 @Controller('company-research')
 export class CompanyResearchController {
     constructor(
@@ -50,10 +60,11 @@ export class CompanyResearchController {
     }
 
     @Delete(':id')
+    @HttpCode(HttpStatus.NO_CONTENT)
     @ApiOperation({ summary: 'Delete a company research' })
     @ApiParam({ name: 'id', type: Number })
     @ApiResponse({
-        status: 200,
+        status: 204,
         description: 'The company research was deleted.',
     })
     @ApiResponse({
