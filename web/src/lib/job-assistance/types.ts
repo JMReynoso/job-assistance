@@ -21,9 +21,12 @@ export interface JobStage {
 export interface JobContact {
   id: string;
   name: string;
+  /** Free text — Hunter returns arbitrary job titles, not a fixed vocabulary. */
   role: string;
   email: string;
   linkedin: string;
+  /** Hunter's 0–100 deliverability score; null for a contact added by hand. */
+  confidence: number | null;
 }
 
 export interface Job {

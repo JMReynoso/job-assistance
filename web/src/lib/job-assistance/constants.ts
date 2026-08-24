@@ -1,26 +1,23 @@
 import type { JobContact, JobStatus } from "./types";
 
-/** The fixed set of roles a contact can have. */
-export const CONTACT_ROLE_OPTIONS = ["Recruiter", "Hiring Manager", "Referral"] as const;
-
-/** Editable columns of the contacts table in the job detail modal. */
-export const CONTACT_COLUMNS: {
-  key: keyof Omit<JobContact, "id">;
+/**
+ * Columns of the (read-only) contacts table in the job detail modal.
+ *
+ * `role` carries Hunter's free-text job title rather than a fixed vocabulary,
+ * and `confidence` is its 0–100 deliverability score.
+ */
+export type ContactColumn = {
+  key: Exclude<keyof JobContact, "id">;
   label: string;
-  type?: "text" | "email" | "select";
-  placeholder?: string;
-  options?: readonly string[];
-}[] = [
-  { key: "name", label: "Contact name", placeholder: "Jane Doe" },
-  { key: "role", label: "Contact role", type: "select", options: CONTACT_ROLE_OPTIONS, placeholder: "Role…" },
-  { key: "email", label: "Contact email", type: "email", placeholder: "name@company.com" },
-  { key: "linkedin", label: "Contact LinkedIn", placeholder: "linkedin.com/in/…" },
-];
+};
 
-/** A fresh, empty contact row (id assigned by the caller). */
-export function emptyContact(id: string): JobContact {
-  return { id, name: "", role: "", email: "", linkedin: "" };
-}
+export const CONTACT_COLUMNS: ContactColumn[] = [
+  { key: "name", label: "Contact name" },
+  { key: "role", label: "Contact role" },
+  { key: "email", label: "Contact email" },
+  { key: "linkedin", label: "Contact LinkedIn" },
+  { key: "confidence", label: "Confidence" },
+];
 
 export const STATUS_OPTIONS: JobStatus[] = [
   "Interested",

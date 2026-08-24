@@ -69,7 +69,14 @@ describe("downloadTailoredResume", () => {
         companyName: "Willow & Oak",
         jobPostingUrl: "https://boards.greenhouse.io/willowoak/jobs/1",
         contacts: [
-          { id: "c1", name: "Dana Reyes", role: "Recruiter", email: "dana@willowoak.co", linkedin: "" },
+          {
+            id: "c1",
+            name: "Dana Reyes",
+            role: "Recruiter",
+            email: "dana@willowoak.co",
+            linkedin: "",
+            confidence: 94,
+          },
         ],
         notes: "Waiting on a phone screen.",
       }),

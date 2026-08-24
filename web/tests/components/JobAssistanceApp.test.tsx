@@ -119,15 +119,15 @@ describe("JobAssistanceApp", () => {
     render(<JobAssistanceApp />);
 
     const dialog = await openJob(user, "Willow & Oak");
-    await user.type(within(dialog).getByDisplayValue("Dana Reyes"), " Jr.");
+    await user.type(within(dialog).getByDisplayValue("Willow & Oak"), " Ltd");
     await user.click(within(dialog).getByRole("button", { name: "Close" }));
 
     const confirm = screen.getByRole("dialog", { name: "Save your changes?" });
-    expect(confirm).toHaveTextContent("Willow & Oak");
+    expect(confirm).toHaveTextContent("Willow & Oak Ltd");
     await user.click(within(confirm).getByRole("button", { name: "Cancel" }));
 
-    expect(screen.getByRole("dialog", { name: "Willow & Oak" })).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Dana Reyes Jr.")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Willow & Oak Ltd" })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Willow & Oak Ltd")).toBeInTheDocument();
   });
 
   it("discards edits when the user exits without saving", async () => {
@@ -135,14 +135,14 @@ describe("JobAssistanceApp", () => {
     render(<JobAssistanceApp />);
 
     const dialog = await openJob(user, "Willow & Oak");
-    await user.type(within(dialog).getByDisplayValue("Dana Reyes"), " Jr.");
+    await user.type(within(dialog).getByDisplayValue("Willow & Oak"), " Ltd");
     await user.click(within(dialog).getByRole("button", { name: "Close" }));
     await user.click(screen.getByRole("button", { name: "Exit without saving" }));
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
     const reopened = await openJob(user, "Willow & Oak");
-    expect(within(reopened).getByDisplayValue("Dana Reyes")).toBeInTheDocument();
+    expect(within(reopened).getByDisplayValue("Willow & Oak")).toBeInTheDocument();
   });
 
   it("closes immediately when there are no unsaved changes", async () => {

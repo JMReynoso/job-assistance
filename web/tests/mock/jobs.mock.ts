@@ -20,6 +20,7 @@ export function buildJob(overrides: Partial<Job> = {}): Job {
         role: "Recruiter",
         email: "dana@willowoak.co",
         linkedin: "linkedin.com/in/danareyes",
+        confidence: 94,
       },
     ],
     companyUrl: "https://willowoak.co",

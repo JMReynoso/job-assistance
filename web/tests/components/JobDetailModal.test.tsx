@@ -58,6 +58,7 @@ describe("JobDetailModal", () => {
           role: "Recruiter",
           email: "dana@willowoak.co",
           linkedin: "linkedin.com/in/danareyes",
+          confidence: 94,
         },
       ],
       companyUrl: "https://willowoak.co",
@@ -78,17 +79,18 @@ describe("JobDetailModal", () => {
       />,
     );
 
-    expect(screen.getByDisplayValue("Dana Reyes")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Recruiter")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("dana@willowoak.co")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("linkedin.com/in/danareyes")).toBeInTheDocument();
+    // Contacts are rendered as text, not inputs — see the read-only test below.
+    expect(screen.getByText("Dana Reyes")).toBeInTheDocument();
+    expect(screen.getByText("Recruiter")).toBeInTheDocument();
+    expect(screen.getByText("dana@willowoak.co")).toBeInTheDocument();
+    expect(screen.getByText("linkedin.com/in/danareyes")).toBeInTheDocument();
     expect(screen.getByDisplayValue("https://willowoak.co")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Reached out after the info session.")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Hi Dana, following up on...")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Just checking in...")).toBeInTheDocument();
   });
 
-  it("shows the contact role as a dropdown of preset options", () => {
+  it("shows contacts as read-only text, with no way to edit or add one", () => {
     render(
       <JobDetailModal
         draft={buildJob()}
@@ -101,22 +103,26 @@ describe("JobDetailModal", () => {
       />,
     );
 
-    const roleSelect = screen.getByDisplayValue("Recruiter");
-    expect(roleSelect.tagName).toBe("SELECT");
-    expect(screen.getByRole("option", { name: "Hiring Manager" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Referral" })).toBeInTheDocument();
+    // The role is Hunter's free-text job title, rendered as text rather than a
+    // <select>: an arbitrary title with no matching <option> would fall back to
+    // the empty placeholder and vanish from the screen while still in state.
+    expect(screen.getByText("Recruiter")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("Recruiter")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Add contact/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Remove/i })).not.toBeInTheDocument();
   });
 
-  it("adds and removes rows in the contacts table", async () => {
-    const user = userEvent.setup({ delay: null });
-    const onFieldChange = jest.fn();
+  it("shows each contact's confidence, and an em dash when there is none", () => {
     render(
       <JobDetailModal
         draft={buildJob({
-          contacts: [{ id: "c1", name: "Dana Reyes", role: "Recruiter", email: "", linkedin: "" }],
+          contacts: [
+            { id: "c1", name: "Dana Reyes", role: "Recruiter", email: "", linkedin: "", confidence: 94 },
+            { id: "c2", name: "Sam Ito", role: "", email: "", linkedin: "", confidence: null },
+          ],
         })}
         dirty={false}
-        onFieldChange={onFieldChange}
+        onFieldChange={jest.fn()}
         onClose={jest.fn()}
         onTrash={jest.fn()}
         onSave={jest.fn()}
@@ -124,15 +130,24 @@ describe("JobDetailModal", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: /Add contact/i }));
-    expect(onFieldChange).toHaveBeenCalledWith("contacts", [
-      expect.objectContaining({ name: "Dana Reyes" }),
-      expect.objectContaining({ name: "", role: "", email: "", linkedin: "" }),
-    ]);
+    expect(screen.getByText("94%")).toBeInTheDocument();
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+  });
 
-    onFieldChange.mockClear();
-    await user.click(screen.getByRole("button", { name: /Remove Dana Reyes/i }));
-    expect(onFieldChange).toHaveBeenCalledWith("contacts", []);
+  it("says so plainly when a job has no contacts", () => {
+    render(
+      <JobDetailModal
+        draft={buildJob({ contacts: [] })}
+        dirty={false}
+        onFieldChange={jest.fn()}
+        onClose={jest.fn()}
+        onTrash={jest.fn()}
+        onSave={jest.fn()}
+        onGetResume={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText("No contacts found for this job yet.")).toBeInTheDocument();
   });
 
   it("reports edits to a text field", () => {

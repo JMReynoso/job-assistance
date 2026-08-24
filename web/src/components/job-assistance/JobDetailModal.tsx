@@ -98,11 +98,7 @@ export default function JobDetailModal({
             />
           </div>
 
-          <ContactsTable
-            className="mt-5"
-            contacts={draft.contacts}
-            onChange={(contacts) => onFieldChange("contacts", contacts)}
-          />
+          <ContactsTable className="mt-5" contacts={draft.contacts} />
 
           <TextAreaField
             className="mt-5"

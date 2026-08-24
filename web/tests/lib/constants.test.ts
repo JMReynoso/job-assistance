@@ -1,4 +1,4 @@
-import { STATUS_OPTIONS, STATUS_STYLES } from "@/lib/job-assistance/constants";
+import { CONTACT_COLUMNS, STATUS_OPTIONS, STATUS_STYLES } from "@/lib/job-assistance/constants";
 
 describe("constants", () => {
   it("defines a status style for every status option", () => {
@@ -11,5 +11,10 @@ describe("constants", () => {
 
   it("has no duplicate status options", () => {
     expect(new Set(STATUS_OPTIONS).size).toBe(STATUS_OPTIONS.length);
+  });
+
+  it("has no duplicate contact columns", () => {
+    const keys = CONTACT_COLUMNS.map((c) => c.key);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });

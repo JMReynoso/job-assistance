@@ -1,33 +1,22 @@
 "use client";
 
 import type { JobContact } from "@/lib/job-assistance/types";
-import { CONTACT_COLUMNS, emptyContact } from "@/lib/job-assistance/constants";
+import { CONTACT_COLUMNS } from "@/lib/job-assistance/constants";
 
 interface ContactsTableProps {
   contacts: JobContact[];
-  onChange: (contacts: JobContact[]) => void;
   className?: string;
 }
 
-function createContactId(): string {
-  return typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `contact-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-export default function ContactsTable({ contacts, onChange, className }: ContactsTableProps) {
-  function updateCell(id: string, key: keyof Omit<JobContact, "id">, value: string) {
-    onChange(contacts.map((c) => (c.id === id ? { ...c, [key]: value } : c)));
-  }
-
-  function addContact() {
-    onChange([...contacts, emptyContact(createContactId())]);
-  }
-
-  function removeContact(id: string) {
-    onChange(contacts.filter((c) => c.id !== id));
-  }
-
+/**
+ * Read-only view of the people Hunter found for a job.
+ *
+ * Nothing here is editable: these rows are lookup results, owned by the
+ * contacts endpoint and refreshed by re-running the lookup. Correcting one by
+ * hand would be overwritten on the next run, so the table displays and does
+ * not edit.
+ */
+export default function ContactsTable({ contacts, className }: ContactsTableProps) {
   return (
     <div className={className}>
       <label className="mb-1.5 block text-[12px] font-semibold text-muted">Contacts</label>
@@ -43,79 +32,43 @@ export default function ContactsTable({ contacts, onChange, className }: Contact
                   {col.label}
                 </th>
               ))}
-              <th className="w-9 border-l border-table-border" aria-hidden />
             </tr>
           </thead>
           <tbody>
             {contacts.length === 0 ? (
               <tr>
                 <td
-                  colSpan={CONTACT_COLUMNS.length + 1}
+                  colSpan={CONTACT_COLUMNS.length}
                   className="px-3 py-4 text-center text-[13px] text-placeholder"
                 >
-                  No contacts yet — add one below.
+                  No contacts found for this job yet.
                 </td>
               </tr>
             ) : (
               contacts.map((contact) => (
                 <tr key={contact.id} className="border-t border-row-border">
                   {CONTACT_COLUMNS.map((col) => (
-                    <td key={col.key} className="border-l border-row-border p-0 first:border-l-0">
-                      {col.type === "select" ? (
-                        <div className="relative">
-                          <select
-                            value={contact[col.key]}
-                            onChange={(e) => updateCell(contact.id, col.key, e.target.value)}
-                            className="w-full min-w-[130px] cursor-pointer appearance-none border-0 bg-transparent px-3 py-2.5 pr-7 text-[13px] text-ink outline-none focus:bg-white focus:ring-1 focus:ring-inset focus:ring-sage"
-                          >
-                            <option value="">{col.placeholder ?? "Select…"}</option>
-                            {col.options?.map((opt) => (
-                              <option key={opt} value={opt}>
-                                {opt}
-                              </option>
-                            ))}
-                          </select>
-                          <span
-                            aria-hidden
-                            className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-faint"
-                          >
-                            ▾
-                          </span>
-                        </div>
+                    <td
+                      key={col.key}
+                      className="border-l border-row-border px-3 py-2.5 align-middle text-[13px] first:border-l-0"
+                    >
+                      {col.key === "confidence" ? (
+                        <span className="tabular-nums text-muted-2">
+                          {contact.confidence == null ? "—" : `${contact.confidence}%`}
+                        </span>
                       ) : (
-                        <input
-                          type={col.type ?? "text"}
-                          value={contact[col.key]}
-                          onChange={(e) => updateCell(contact.id, col.key, e.target.value)}
-                          placeholder={col.placeholder}
-                          className="w-full min-w-[130px] border-0 bg-transparent px-3 py-2.5 text-[13px] text-ink outline-none focus:bg-white focus:ring-1 focus:ring-inset focus:ring-sage"
-                        />
+                        <span className="block min-w-[130px] break-words text-ink">
+                          {contact[col.key] || <span className="text-placeholder">—</span>}
+                        </span>
                       )}
                     </td>
                   ))}
-                  <td className="border-l border-row-border p-0 text-center align-middle">
-                    <button
-                      type="button"
-                      onClick={() => removeContact(contact.id)}
-                      aria-label={`Remove ${contact.name.trim() || "contact"}`}
-                      className="h-[30px] w-[30px] rounded-lg text-[15px] leading-none text-muted-2 hover:bg-[#f3ddd7] hover:text-[#a8503b]"
-                    >
-                      ✕
-                    </button>
-                  </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
-      <button
-        type="button"
-        onClick={addContact}
-        className="mt-2 inline-flex items-center gap-1.5 rounded-[10px] border border-input-border bg-white px-3 py-1.5 text-[13px] font-semibold text-[#5f7a3a] hover:bg-[#f5f8ee]"
-      >
-        <span className="text-[16px] leading-none">＋</span> Add contact
-      </button>
     </div>
   );
 }

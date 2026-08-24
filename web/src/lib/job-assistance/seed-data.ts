@@ -14,6 +14,7 @@ export const INITIAL_JOBS: Job[] = [
         role: "Recruiter",
         email: "dana@willowoak.co",
         linkedin: "linkedin.com/in/danareyes",
+        confidence: 94,
       },
     ],
     companyUrl: "https://willowoak.co",
@@ -38,6 +39,7 @@ export const INITIAL_JOBS: Job[] = [
         role: "Hiring Manager",
         email: "sam@maplegrove.design",
         linkedin: "",
+        confidence: null,
       },
       {
         id: "seed-2-c2",
@@ -45,6 +47,7 @@ export const INITIAL_JOBS: Job[] = [
         role: "Referral",
         email: "",
         linkedin: "linkedin.com/in/priyan",
+        confidence: 81,
       },
     ],
     companyUrl: "https://maplegrove.design",
