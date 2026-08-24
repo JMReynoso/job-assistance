@@ -7,6 +7,7 @@ import { ExampleModule } from './entities/example/example.module';
 import { CompanyResearchModule } from './entities/companyResearch/company-research.module';
 import { GeneratedContentModule } from './entities/generatedContent/generated-content.module';
 import { ContactsModule } from './entities/contacts/contacts.module';
+import { JobsModule } from './entities/jobs/jobs.module';
 
 @Module({
     imports: [
@@ -21,6 +22,10 @@ import { ContactsModule } from './entities/contacts/contacts.module';
         CompanyResearchModule,
         GeneratedContentModule,
         ContactsModule,
+        // Registered explicitly rather than relying on GeneratedContentModule
+        // importing it: the frontend reads /jobs directly, so mounting the
+        // controller shouldn't be a side effect of an unrelated module.
+        JobsModule,
     ],
     controllers: [AppController],
 })

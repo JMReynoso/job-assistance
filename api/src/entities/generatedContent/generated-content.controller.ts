@@ -6,6 +6,7 @@ import {
     HttpCode,
     HttpStatus,
     Param,
+    ParseIntPipe,
     Patch,
     Post,
 } from '@nestjs/common';
@@ -43,6 +44,26 @@ export class GeneratedContentController {
     })
     findAll() {
         return this.generatedContentService.findAll();
+    }
+
+    @Get('by-job/:jobId')
+    @ApiOperation({
+        summary: 'Get the latest generated content for a job',
+        description:
+            'A job can be regenerated; this returns the most recent run. A ' +
+            'job that has never been generated for returns null, not a 404 — ' +
+            'having no content yet is the normal state of a job you just added.',
+    })
+    @ApiParam({ name: 'jobId', type: Number })
+    @ApiResponse({
+        status: 200,
+        description: "The job's latest generated content, or null.",
+        type: GeneratedContent,
+    })
+    findByJob(
+        @Param('jobId', ParseIntPipe) jobId: number,
+    ): Promise<GeneratedContent | null> {
+        return this.generatedContentService.findByJobId(jobId);
     }
 
     @Get(':id')

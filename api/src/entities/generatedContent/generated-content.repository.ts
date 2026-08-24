@@ -32,6 +32,20 @@ export class GeneratedContentRepository extends BaseRepository {
         );
     }
 
+    /**
+     * The most recent generation run for a job. A job can be regenerated, so
+     * order by id DESC and take the latest — the same rule company research
+     * follows.
+     */
+    findByJobId(jobId: number): Promise<GeneratedContent | null> {
+        return this.run(`fetching generated content for job ${jobId}`, () =>
+            this.repository.findOne({
+                where: { jobId },
+                order: { id: 'DESC' },
+            }),
+        );
+    }
+
     create(data: GeneratedContent): Promise<GeneratedContent> {
         const generatedContent = this.repository.create(data);
         return this.run('saving new generated content', () =>
