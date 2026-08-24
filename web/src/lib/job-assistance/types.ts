@@ -7,8 +7,6 @@ export type JobStatus =
   | "Rejected"
   | "Ghosted";
 
-export type MessageStyle = "Friendly" | "Formal" | "Casual" | "Direct" | "Enthusiastic";
-
 /** One step of the "Add to tracker" generation pipeline. */
 export type JobStageKey = "created" | "research" | "tailoring" | "contact" | "ready";
 
@@ -34,7 +32,6 @@ export interface Job {
   status: JobStatus;
   dateApplied: string;
   dateLastContacted: string;
-  messageStyle: MessageStyle;
   contacts: JobContact[];
   companyUrl: string;
   jobPostingUrl: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Job } from "@/lib/job-assistance/types";
-import { MESSAGE_STYLE_OPTIONS, OPEN_BUTTON_BG, OPEN_BUTTON_COLOR, STATUS_OPTIONS } from "@/lib/job-assistance/constants";
+import { OPEN_BUTTON_BG, OPEN_BUTTON_COLOR, STATUS_OPTIONS } from "@/lib/job-assistance/constants";
 import { isStale } from "@/lib/job-assistance/date";
 import ContactsTable from "./ContactsTable";
 import FormField from "./FormField";
@@ -84,11 +84,11 @@ export default function JobDetailModal({
                 background: contactStale ? "#f8ddd5" : "#fff",
               }}
             />
-            <SelectField
-              label="Message style"
-              value={draft.messageStyle}
-              options={MESSAGE_STYLE_OPTIONS}
-              onChange={(v) => onFieldChange("messageStyle", v as Job["messageStyle"])}
+            <FormField
+              label="Job posting URL"
+              placeholder="https://boards.greenhouse.io/…"
+              value={draft.jobPostingUrl}
+              onChange={(v) => onFieldChange("jobPostingUrl", v)}
             />
             <FormField
               label="Company URL"

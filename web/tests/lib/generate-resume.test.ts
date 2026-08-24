@@ -63,11 +63,11 @@ describe("downloadTailoredResume", () => {
     expect(lastCreatedAnchor().getAttribute("download")).toBe("resume-job.txt");
   });
 
-  it("includes the target role, message style, contact, and notes in the file contents", () => {
+  it("includes the target role, job posting, contact, and notes in the file contents", () => {
     downloadTailoredResume(
       buildJob({
         companyName: "Willow & Oak",
-        messageStyle: "Friendly",
+        jobPostingUrl: "https://boards.greenhouse.io/willowoak/jobs/1",
         contacts: [
           { id: "c1", name: "Dana Reyes", role: "Recruiter", email: "dana@willowoak.co", linkedin: "" },
         ],
@@ -76,7 +76,7 @@ describe("downloadTailoredResume", () => {
     );
 
     expect(capturedBlobText).toContain("Target role: Willow & Oak");
-    expect(capturedBlobText).toContain("Message style: Friendly");
+    expect(capturedBlobText).toContain("Job posting: https://boards.greenhouse.io/willowoak/jobs/1");
     expect(capturedBlobText).toContain("Contact: Dana Reyes <dana@willowoak.co>");
     expect(capturedBlobText).toContain("Waiting on a phone screen.");
   });

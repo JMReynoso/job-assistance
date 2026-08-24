@@ -13,7 +13,6 @@ export function buildJob(overrides: Partial<Job> = {}): Job {
     status: "Applied",
     dateApplied: "2026-07-03",
     dateLastContacted: ISO_5_DAYS_AGO,
-    messageStyle: "Friendly",
     contacts: [
       {
         id: "job-1-c1",
@@ -41,7 +40,6 @@ export function buildBlankJob(overrides: Partial<Job> = {}): Job {
     status: "Interested",
     dateApplied: "",
     dateLastContacted: "",
-    messageStyle: "Friendly",
     contacts: [],
     companyUrl: "",
     notes: "",

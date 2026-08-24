@@ -41,7 +41,6 @@ export function useJobTracker() {
       status: "Interested",
       dateApplied: "",
       dateLastContacted: "",
-      messageStyle: "Friendly",
       contacts: [],
       companyUrl: home.companyPage,
       jobPostingUrl: home.jobPosting,

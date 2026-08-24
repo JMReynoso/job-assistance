@@ -1,4 +1,4 @@
-import type { JobContact, JobStatus, MessageStyle } from "./types";
+import type { JobContact, JobStatus } from "./types";
 
 /** The fixed set of roles a contact can have. */
 export const CONTACT_ROLE_OPTIONS = ["Recruiter", "Hiring Manager", "Referral"] as const;
@@ -30,14 +30,6 @@ export const STATUS_OPTIONS: JobStatus[] = [
   "Offer",
   "Rejected",
   "Ghosted",
-];
-
-export const MESSAGE_STYLE_OPTIONS: MessageStyle[] = [
-  "Friendly",
-  "Formal",
-  "Casual",
-  "Direct",
-  "Enthusiastic",
 ];
 
 export const STATUS_STYLES: Record<JobStatus, { bg: string; color: string }> = {

@@ -1,4 +1,4 @@
-import { MESSAGE_STYLE_OPTIONS, STATUS_OPTIONS, STATUS_STYLES } from "@/lib/job-assistance/constants";
+import { STATUS_OPTIONS, STATUS_STYLES } from "@/lib/job-assistance/constants";
 
 describe("constants", () => {
   it("defines a status style for every status option", () => {
@@ -9,8 +9,7 @@ describe("constants", () => {
     });
   });
 
-  it("has no duplicate status or message style options", () => {
+  it("has no duplicate status options", () => {
     expect(new Set(STATUS_OPTIONS).size).toBe(STATUS_OPTIONS.length);
-    expect(new Set(MESSAGE_STYLE_OPTIONS).size).toBe(MESSAGE_STYLE_OPTIONS.length);
   });
 });

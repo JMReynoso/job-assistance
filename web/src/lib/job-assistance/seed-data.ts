@@ -7,7 +7,6 @@ export const INITIAL_JOBS: Job[] = [
     status: "Applied",
     dateApplied: "2026-07-03",
     dateLastContacted: "2026-07-09",
-    messageStyle: "Friendly",
     contacts: [
       {
         id: "seed-1-c1",
@@ -32,7 +31,6 @@ export const INITIAL_JOBS: Job[] = [
     status: "Interviewing",
     dateApplied: "2026-06-28",
     dateLastContacted: "2026-07-11",
-    messageStyle: "Enthusiastic",
     contacts: [
       {
         id: "seed-2-c1",
@@ -63,7 +61,6 @@ export const INITIAL_JOBS: Job[] = [
     status: "Interested",
     dateApplied: "",
     dateLastContacted: "",
-    messageStyle: "Formal",
     contacts: [],
     companyUrl: "https://fernandfield.io",
     jobPostingUrl: "",
