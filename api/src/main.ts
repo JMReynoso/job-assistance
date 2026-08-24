@@ -15,6 +15,16 @@ async function bootstrap() {
         new FastifyAdapter(),
     );
 
+    // The web app is served from a different origin (:4000 → :4001), so the
+    // browser needs an explicit allow or every request from it fails. Registers
+    // @fastify/cors (a dependency of platform-fastify), so it has to happen
+    // before listen() freezes plugin registration. No credentials: nothing is
+    // authenticated yet, and enabling that later needs a real origin allowlist.
+    app.enableCors({
+        origin: process.env.CORS_ORIGIN ?? 'http://localhost:4000',
+        credentials: false,
+    });
+
     // Bring the schema up to date, then load seed data — before we start
     // accepting traffic, so no request ever hits a half-built database. If
     // migrations fail we abort rather than serve against a bad schema.
