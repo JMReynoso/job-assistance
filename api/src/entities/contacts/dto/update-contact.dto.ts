@@ -37,6 +37,11 @@ export class UpdateContactDto {
     @IsString()
     position?: string;
 
+    @ApiPropertyOptional({ example: 'https://www.linkedin.com/in/janedoe' })
+    @IsOptional()
+    @IsString()
+    linkedin?: string;
+
     @ApiPropertyOptional({ example: 92, description: '0–100' })
     @IsOptional()
     @IsInt()

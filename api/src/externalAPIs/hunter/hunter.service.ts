@@ -24,6 +24,8 @@ export interface HunterEmail {
     first_name: string | null;
     last_name: string | null;
     position: string | null;
+    /** The person's LinkedIn profile URL, when Hunter has one. */
+    linkedin: string | null;
 }
 
 /** The payload of a domain search: the company plus the emails found for it. */

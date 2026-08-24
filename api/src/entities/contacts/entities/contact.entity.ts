@@ -65,6 +65,15 @@ export class Contact {
     position?: string;
 
     @ApiProperty({
+        example: 'https://www.linkedin.com/in/janedoe',
+        description:
+            "The person's LinkedIn profile, when Hunter has one for them",
+        nullable: true,
+    })
+    @Column({ type: 'text', nullable: true })
+    linkedin?: string;
+
+    @ApiProperty({
         example: 92,
         description:
             '0–100 confidence that the address is deliverable. 90+ is safe to ' +

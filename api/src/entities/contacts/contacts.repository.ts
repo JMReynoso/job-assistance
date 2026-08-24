@@ -64,6 +64,7 @@ export class ContactsRepository extends BaseRepository {
                 firstName: email.first_name ?? undefined,
                 lastName: email.last_name ?? undefined,
                 position: email.position ?? undefined,
+                linkedin: email.linkedin ?? undefined,
             }),
         );
 
@@ -79,6 +80,7 @@ export class ContactsRepository extends BaseRepository {
                             'firstName',
                             'lastName',
                             'position',
+                            'linkedin',
                             'confidence',
                             'type',
                             // Raw upserts bypass @UpdateDateColumn, so the
