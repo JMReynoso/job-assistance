@@ -3,6 +3,7 @@
 One page covering **everything the API stores and exposes**: each entity, the Postgres table behind it, how rows get written, and the HTTP endpoints that reach them.
 
 - For *how* the layers fit together (controller → service → repository), see [controllers-services-repositories.md](controllers-services-repositories.md).
+- For how the web app assembles one job out of these four tables, see [job-detail-window.md](job-detail-window.md).
 - For *how* the schema changes, see [migrations-and-seeds.md](migrations-and-seeds.md).
 - For the external APIs that fill three of these tables, see [perplexity-api.md](perplexity-api.md), [claude-api.md](claude-api.md), and [hunter-api.md](hunter-api.md).
 
