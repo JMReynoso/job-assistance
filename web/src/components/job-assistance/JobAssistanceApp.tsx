@@ -60,6 +60,9 @@ export default function JobAssistanceApp() {
           onHoverChange={tracker.setHoveredId}
           onOpen={tracker.openRow}
           onStatusChange={tracker.setRowStatus}
+          loading={tracker.jobsStatus === "loading"}
+          error={tracker.jobsStatus === "error"}
+          onRetry={tracker.loadJobs}
         />
       </main>
 
@@ -82,6 +85,9 @@ export default function JobAssistanceApp() {
           onTrash={tracker.requestDelete}
           onSave={tracker.saveDraft}
           onGetResume={() => tracker.draft && downloadTailoredResume(tracker.draft)}
+          detailStatus={tracker.detailStatus}
+          onRetryDetail={tracker.retryDetail}
+          resumeFileName={tracker.resumeFileName}
         />
       )}
 

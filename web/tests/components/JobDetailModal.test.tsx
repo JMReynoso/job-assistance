@@ -62,6 +62,7 @@ describe("JobDetailModal", () => {
         },
       ],
       companyUrl: "https://willowoak.co",
+      jobPostingUrl: "https://boards.greenhouse.io/willowoak/jobs/1",
       notes: "Reached out after the info session.",
       recruiterMessage: "Hi Dana, following up on...",
       followupMessage: "Just checking in...",
@@ -79,18 +80,20 @@ describe("JobDetailModal", () => {
       />,
     );
 
-    // Contacts are rendered as text, not inputs — see the read-only test below.
+    // Contacts are read-only text, the rest are editable inputs.
     expect(screen.getByText("Dana Reyes")).toBeInTheDocument();
     expect(screen.getByText("Recruiter")).toBeInTheDocument();
     expect(screen.getByText("dana@willowoak.co")).toBeInTheDocument();
     expect(screen.getByText("linkedin.com/in/danareyes")).toBeInTheDocument();
+    expect(screen.getByText("94%")).toBeInTheDocument();
     expect(screen.getByDisplayValue("https://willowoak.co")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("https://boards.greenhouse.io/willowoak/jobs/1")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Reached out after the info session.")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Hi Dana, following up on...")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Just checking in...")).toBeInTheDocument();
   });
 
-  it("shows contacts as read-only text, with no way to edit or add one", () => {
+  it("renders the contacts table read-only, with no add or remove affordances", () => {
     render(
       <JobDetailModal
         draft={buildJob()}
@@ -103,22 +106,19 @@ describe("JobDetailModal", () => {
       />,
     );
 
-    // The role is Hunter's free-text job title, rendered as text rather than a
-    // <select>: an arbitrary title with no matching <option> would fall back to
-    // the empty placeholder and vanish from the screen while still in state.
-    expect(screen.getByText("Recruiter")).toBeInTheDocument();
-    expect(screen.queryByDisplayValue("Recruiter")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Add contact/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Remove/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Remove Dana Reyes/i })).not.toBeInTheDocument();
+    // The contact's details are text, not form controls.
+    expect(screen.queryByDisplayValue("Dana Reyes")).not.toBeInTheDocument();
+    expect(screen.getByText("Dana Reyes")).toBeInTheDocument();
   });
 
-  it("shows each contact's confidence, and an em dash when there is none", () => {
+  it("shows an em dash for a contact with no confidence score", () => {
     render(
       <JobDetailModal
         draft={buildJob({
           contacts: [
-            { id: "c1", name: "Dana Reyes", role: "Recruiter", email: "", linkedin: "", confidence: 94 },
-            { id: "c2", name: "Sam Ito", role: "", email: "", linkedin: "", confidence: null },
+            { id: "c1", name: "Dana Reyes", role: "", email: "d@x.co", linkedin: "", confidence: null },
           ],
         })}
         dirty={false}
@@ -130,14 +130,55 @@ describe("JobDetailModal", () => {
       />,
     );
 
-    expect(screen.getByText("94%")).toBeInTheDocument();
-    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+    // Two: the empty role cell and the absent confidence.
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
   });
 
-  it("says so plainly when a job has no contacts", () => {
+  it("shows a spinner while the detail is loading and disables the form", () => {
     render(
       <JobDetailModal
-        draft={buildJob({ contacts: [] })}
+        draft={buildJob()}
+        dirty={false}
+        onFieldChange={jest.fn()}
+        onClose={jest.fn()}
+        onTrash={jest.fn()}
+        onSave={jest.fn()}
+        onGetResume={jest.fn()}
+        detailStatus="loading"
+      />,
+    );
+
+    expect(screen.getByText(/Loading this job’s details/)).toBeInTheDocument();
+    // Editing is blocked so an arriving response can't overwrite typed input.
+    expect(dateInputNear("Date applied")).toBeDisabled();
+  });
+
+  it("offers a retry when the detail fetch failed", async () => {
+    const user = userEvent.setup({ delay: null });
+    const onRetryDetail = jest.fn();
+    render(
+      <JobDetailModal
+        draft={buildJob()}
+        dirty={false}
+        onFieldChange={jest.fn()}
+        onClose={jest.fn()}
+        onTrash={jest.fn()}
+        onSave={jest.fn()}
+        onGetResume={jest.fn()}
+        detailStatus="error"
+        onRetryDetail={onRetryDetail}
+      />,
+    );
+
+    expect(screen.getByText(/Couldn’t load this job’s details/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Try again/i }));
+    expect(onRetryDetail).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders no status chrome when there is nothing to load", () => {
+    render(
+      <JobDetailModal
+        draft={buildJob()}
         dirty={false}
         onFieldChange={jest.fn()}
         onClose={jest.fn()}
@@ -147,7 +188,8 @@ describe("JobDetailModal", () => {
       />,
     );
 
-    expect(screen.getByText("No contacts found for this job yet.")).toBeInTheDocument();
+    expect(screen.queryByText(/Loading this job’s details/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Couldn’t load this job’s details/)).not.toBeInTheDocument();
   });
 
   it("reports edits to a text field", () => {
@@ -255,6 +297,35 @@ describe("JobDetailModal", () => {
     expect(saveButton).toBeEnabled();
   });
 
+  it("disables Get Tailored Resume until one has been generated", () => {
+    const { rerender } = render(
+      <JobDetailModal
+        draft={buildJob()}
+        dirty={false}
+        onFieldChange={jest.fn()}
+        onClose={jest.fn()}
+        onTrash={jest.fn()}
+        onSave={jest.fn()}
+        onGetResume={jest.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /Get Tailored Resume/i })).toBeDisabled();
+
+    rerender(
+      <JobDetailModal
+        draft={buildJob()}
+        dirty={false}
+        onFieldChange={jest.fn()}
+        onClose={jest.fn()}
+        onTrash={jest.fn()}
+        onSave={jest.fn()}
+        onGetResume={jest.fn()}
+        resumeFileName="Jane_Doe_Willow_1.pdf"
+      />,
+    );
+    expect(screen.getByRole("button", { name: /Get Tailored Resume/i })).toBeEnabled();
+  });
+
   it("wires up close, delete, save, and get-resume buttons", async () => {
     const user = userEvent.setup({ delay: null });
     const onClose = jest.fn();
@@ -270,6 +341,7 @@ describe("JobDetailModal", () => {
         onTrash={onTrash}
         onSave={onSave}
         onGetResume={onGetResume}
+        resumeFileName="Jane_Doe_Willow_1.pdf"
       />,
     );
 

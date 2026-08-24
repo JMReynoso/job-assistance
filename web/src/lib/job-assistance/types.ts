@@ -30,6 +30,10 @@ export interface JobContact {
 }
 
 export interface Job {
+  /**
+   * The backend row id as a string. A job that only exists locally (added but
+   * not yet persisted) has a non-numeric id — see `toJobId` in lib/api/mappers.
+   */
   id: string;
   companyName: string;
   status: JobStatus;

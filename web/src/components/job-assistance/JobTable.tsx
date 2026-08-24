@@ -10,11 +10,24 @@ interface JobTableProps {
   onHoverChange: (id: string | null) => void;
   onOpen: (id: string) => void;
   onStatusChange: (id: string, status: JobStatus) => void;
+  /** Optional so tests that only care about rows can keep passing jobs alone. */
+  loading?: boolean;
+  error?: boolean;
+  onRetry?: () => void;
 }
 
 const COLUMNS = ["Company", "Status", "Date applied", "Last contacted"];
 
-export default function JobTable({ jobs, hoveredId, onHoverChange, onOpen, onStatusChange }: JobTableProps) {
+export default function JobTable({
+  jobs,
+  hoveredId,
+  onHoverChange,
+  onOpen,
+  onStatusChange,
+  loading = false,
+  error = false,
+  onRetry,
+}: JobTableProps) {
   const rowCountLabel = jobs.length === 1 ? "1 job" : `${jobs.length} jobs`;
 
   return (
@@ -56,8 +69,31 @@ export default function JobTable({ jobs, hoveredId, onHoverChange, onOpen, onSta
         </tbody>
       </table>
       {jobs.length === 0 && (
-        <div className="px-6 py-[34px] text-center text-[14px] text-placeholder">
-          No jobs yet — add one above to get started.
+        <div className="px-6 py-[34px] text-center text-[14px]">
+          {loading ? (
+            <span className="inline-flex items-center gap-2.5 text-muted-2" aria-live="polite">
+              <span
+                aria-hidden
+                className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-sage/30 border-t-sage"
+              />
+              Loading your jobs…
+            </span>
+          ) : error ? (
+            <span className="inline-flex items-center gap-3 text-[#a8503b]" aria-live="polite">
+              Couldn&rsquo;t load your jobs.
+              <button
+                onClick={onRetry}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-maple px-3.5 py-1.5 text-[13px] font-semibold text-white hover:brightness-105"
+              >
+                <span aria-hidden className="text-[14px] leading-none">
+                  ↻
+                </span>{" "}
+                Try again
+              </button>
+            </span>
+          ) : (
+            <span className="text-placeholder">No jobs yet — add one above to get started.</span>
+          )}
         </div>
       )}
     </section>
