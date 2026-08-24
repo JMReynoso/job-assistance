@@ -63,6 +63,32 @@ export class Job {
     @Column({ type: 'text', default: Status.NOT_APPLIED })
     status: Status;
 
+    // Both are `date` columns, which TypeORM hydrates to a 'YYYY-MM-DD' string
+    // rather than a Date — the exact format an <input type="date"> expects, so
+    // the frontend needs no formatting layer in either direction.
+    //
+    // Neither is nullable: a job has both from the moment it's created (the
+    // column default fills them with today), so there's no empty state to
+    // render, and the DTO refuses to write one back as blank.
+
+    @ApiProperty({
+        example: '2026-07-03',
+        description:
+            'Calendar day the application was submitted; defaults to the day ' +
+            'the job was created',
+    })
+    @Column({ type: 'date', default: () => 'CURRENT_DATE' })
+    dateApplied: string;
+
+    @ApiProperty({
+        example: '2026-07-09',
+        description:
+            'Calendar day the company was last heard from; defaults to the ' +
+            'day the job was created',
+    })
+    @Column({ type: 'date', default: () => 'CURRENT_DATE' })
+    dateLastContacted: string;
+
     @ApiProperty()
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date;

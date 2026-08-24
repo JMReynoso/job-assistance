@@ -25,6 +25,8 @@ export const jobsSeed: Seed = {
                 companyPage: 'https://acme.example.com',
                 companyLinkedIn: 'https://www.linkedin.com/company/acme-corp',
                 status: Status.APPLIED,
+                dateApplied: '2026-07-03',
+                dateLastContacted: '2026-07-09',
             },
             {
                 companyName: 'Globex',
@@ -32,6 +34,8 @@ export const jobsSeed: Seed = {
                 companyPage: 'https://globex.example.com',
                 companyLinkedIn: 'https://www.linkedin.com/company/globex',
                 status: Status.INTERVIEWING,
+                dateApplied: '2026-06-18',
+                dateLastContacted: '2026-08-20',
             },
             {
                 companyName: 'Initech',
@@ -40,6 +44,10 @@ export const jobsSeed: Seed = {
                 companyLinkedIn: 'https://www.linkedin.com/company/initech',
                 extraURLs: 'https://www.crunchbase.com/organization/initech',
                 status: Status.NOT_APPLIED,
+                // Set explicitly rather than leaning on the CURRENT_DATE
+                // default, so seeded rows are the same on every machine.
+                dateApplied: '2026-08-14',
+                dateLastContacted: '2026-08-14',
             },
         ]);
     },
