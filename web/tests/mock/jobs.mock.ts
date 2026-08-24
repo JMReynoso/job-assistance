@@ -8,14 +8,16 @@ import { ISO_5_DAYS_AGO } from "./dates.mock";
  */
 export function buildJob(overrides: Partial<Job> = {}): Job {
   return {
-    id: "job-1",
+    // Numeric-as-string, matching what mapJob produces from a real row — so
+    // toJobId() treats it as persisted.
+    id: "1",
     companyName: "Willow & Oak",
     status: "Applied",
     dateApplied: "2026-07-03",
     dateLastContacted: ISO_5_DAYS_AGO,
     contacts: [
       {
-        id: "job-1-c1",
+        id: "11",
         name: "Dana Reyes",
         role: "Recruiter",
         email: "dana@willowoak.co",
@@ -37,10 +39,10 @@ export function buildJob(overrides: Partial<Job> = {}): Job {
 /** A freshly-added job, as it looks right after "Add to tracker" — mostly blank. */
 export function buildBlankJob(overrides: Partial<Job> = {}): Job {
   return buildJob({
+    // A local id: non-numeric, so no detail fetch is attempted for it.
+    id: "local-abc",
     companyName: "Untitled role",
     status: "Interested",
-    dateApplied: "",
-    dateLastContacted: "",
     contacts: [],
     companyUrl: "",
     notes: "",

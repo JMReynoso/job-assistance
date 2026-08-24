@@ -70,7 +70,7 @@ describe("JobTableRow", () => {
     renderRow({ onHoverChange });
 
     await user.hover(screen.getByText("Willow & Oak"));
-    expect(onHoverChange).toHaveBeenCalledWith("job-1");
+    expect(onHoverChange).toHaveBeenCalledWith("1");
 
     await user.unhover(screen.getByText("Willow & Oak"));
     expect(onHoverChange).toHaveBeenCalledWith(null);
