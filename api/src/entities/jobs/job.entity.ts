@@ -56,6 +56,16 @@ export class Job {
     extraURLs?: string;
 
     @ApiProperty({
+        example: 'We are looking for a Senior Backend Engineer with Node.js…',
+        description:
+            'The full job posting text, pasted once and reused by every ' +
+            'generation and regeneration.',
+        nullable: true,
+    })
+    @Column({ type: 'text', nullable: true })
+    jobDescription?: string;
+
+    @ApiProperty({
         enum: Status,
         example: Status.NOT_APPLIED,
         description: 'Where the job sits in the application pipeline',

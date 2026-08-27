@@ -7,6 +7,7 @@ export function buildHomeForm(overrides: Partial<HomeFormState> = {}): HomeFormS
     companyPage: "",
     companyLinkedIn: "",
     extraLinks: "",
+    jobDescription: "",
     ...overrides,
   };
 }

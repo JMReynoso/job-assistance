@@ -12,7 +12,7 @@
 // Cover-letter / resume drafting instructions.
 export const COVER_LETTER_SYSTEM = `You are an expert career coach writing tailored cover letters.
 Write in a confident, specific voice. Never invent experience the candidate does not have.
-Make sure the resume is one-page and is ATS-friendly. Make sure the resume is letter size. Tailor this resume to match the job description which is a URL that will be sent in the messages.\n\n
+Make sure the resume is one-page and is ATS-friendly. Make sure the resume is letter size. Tailor this resume to match the job description that will be sent in the messages.\n\n
             Instructions:\n
             1. Include most recent experience first so that we don't have any gaps in employment, and make sure to include the most relevant experience for the job description.\n
             2. Rewrite the professional summary to align with the company and role.\n
@@ -64,3 +64,38 @@ Keep it concise (roughly 90-140 words), first person, and never invent facts abo
 
 // Model used for the message-drafting Claude calls.
 export const MESSAGE_MODEL = 'claude-sonnet-5';
+
+// Model for the JD-match scoring and resume-regeneration calls. Opus-tier for
+// the same reason draftResume is: the percentage is user-facing and the rewrite
+// has to stay truthful. Same $5/$25 rates as RESUME_MODEL, so this costs no
+// more per token than the resume call already does.
+export const MATCH_MODEL = 'claude-opus-5';
+
+export const JD_MATCH_SYSTEM = `You score how well a tailored resume matches a job description, the way an ATS and a hiring manager together would.
+
+Return two things:
+1. matchPercent — an integer 0-100. Weight it by: required hard skills and technologies (50%), years and seniority of relevant experience (25%), domain and responsibility overlap (15%), and nice-to-haves (10%). Be strict and consistent: an average qualified applicant should land near 65-75, not 90.
+2. missingKeywords — concrete skills, technologies, tools, certifications, or standard role phrases that the job description asks for and the resume never states.
+
+Rules for missingKeywords:
+- Use the job description's own wording (e.g. "Kubernetes", "gRPC", "SOC 2", "incident response").
+- Only list things the candidate could truthfully add — a technology adjacent to what they already do, not a decade of experience they lack.
+- Never list something already present in the resume in any form (an acronym counts as its expansion, and vice versa).
+- Order by how much adding it would raise the score, highest first.
+- At most 20 items. Return an empty array if nothing meaningful is missing.
+
+Judge only what is written. Never infer skills the resume does not state.`;
+
+export const RESUME_REGENERATE_SYSTEM = `You revise an already-tailored resume to incorporate specific keywords the candidate has chosen, raising its match against a job description.
+
+You are given the current resume as JSON, the job description, and the list of keywords to work in.
+
+Rules:
+- Return the SAME JSON shape you were given. Same top-level keys, same nested structure, same field names. Change only the values you need to.
+- Work in every requested keyword, in the place it genuinely belongs: a technology goes in technical_skills under the right category AND, where it is plausible, into a relevant experience or project bullet so it reads as used rather than listed.
+- Never fabricate employment, employers, dates, degrees, certifications, or metrics. Rewording an existing bullet to name a tool the work plausibly involved is fine; inventing a job or a number is not.
+- If a keyword cannot be placed truthfully, add it to technical_skills only, and do not force it into a bullet.
+- Preserve length: this must still be a one-page, ATS-friendly resume. No tables, images, or columns. Keep the section order Summary, Skills, Experience, Projects, Education.
+- Keep every bullet that is already strong. Do not rewrite the whole resume.
+
+Output raw JSON only — no prose, no markdown fence.`;

@@ -38,6 +38,29 @@ describe("AddJobForm", () => {
     expect(onFieldChange).toHaveBeenCalledWith("extraLinks", "https://glassdoor.com/acme");
   });
 
+  it("renders the job description textarea and reports its edits", () => {
+    const onFieldChange = jest.fn();
+    const home = buildHomeForm({ jobDescription: "We are looking for a Senior Backend Engineer…" });
+    render(<AddJobForm home={home} onFieldChange={onFieldChange} onAdd={jest.fn()} />);
+
+    expect(screen.getByDisplayValue("We are looking for a Senior Backend Engineer…")).toBeInTheDocument();
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        "Paste the full job posting text here — this is what your resume gets tailored and scored against…",
+      ),
+      { target: { value: "Updated posting text" } },
+    );
+    expect(onFieldChange).toHaveBeenCalledWith("jobDescription", "Updated posting text");
+  });
+
+  it("labels the URL field 'Job posting link', not 'Job posting URL'", () => {
+    render(<AddJobForm home={buildHomeForm()} onFieldChange={jest.fn()} onAdd={jest.fn()} />);
+
+    expect(screen.getByText("Job posting link")).toBeInTheDocument();
+    expect(screen.queryByText("Job posting URL")).not.toBeInTheDocument();
+  });
+
   it("calls onAdd when the button is clicked", async () => {
     const user = userEvent.setup();
     const onAdd = jest.fn();

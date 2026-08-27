@@ -5,7 +5,7 @@ The window that opens when you click **open** on a tracker row. This page covers
 - For the tables and endpoints themselves, see [data-model.md](data-model.md).
 - For how the API layers fit together, see [controllers-services-repositories.md](controllers-services-repositories.md).
 
-**The window is read-only against the backend.** It loads real data, and Save commits to local React state only — nothing is persisted. See [What isn't wired](#what-isnt-wired) at the end.
+**The window is read-only against the backend, with one exception.** Every field in the form loads real data and Save commits to local React state only — nothing is persisted. **Regenerate Tailored Resume is different: it's the app's first wired write**, a real `POST /generated-content/regenerate` that updates the row in Postgres. See [What isn't wired](#what-isnt-wired) at the end.
 
 ---
 
@@ -14,12 +14,15 @@ The window that opens when you click **open** on a tracker row. This page covers
 | File | Job |
 | --- | --- |
 | [useJobTracker.ts](../web/src/hooks/useJobTracker.ts) | Owns the list, the open row, the draft, and every load state |
-| [lib/api/jobs.ts](../web/src/lib/api/jobs.ts) | `fetchJobs()` and `fetchJobDetail()` — the four requests |
-| [lib/api/client.ts](../web/src/lib/api/client.ts) | `apiGet()` and `ApiError` |
+| [useRegenerateResume.ts](../web/src/hooks/useRegenerateResume.ts) | Owns the regenerate call, its (cosmetic) progress stages, and the abort |
+| [lib/api/jobs.ts](../web/src/lib/api/jobs.ts) | `fetchJobs()`, `fetchJobDetail()` — the four requests — and `regenerateTailoredResume()` |
+| [lib/api/client.ts](../web/src/lib/api/client.ts) | `apiGet()`, `apiPost()`, and `ApiError` |
 | [lib/api/mappers.ts](../web/src/lib/api/mappers.ts) | Translates wire shapes → UI shapes. The only file that knows both |
 | [lib/api/types.ts](../web/src/lib/api/types.ts) | Hand-written mirrors of the four entities as they arrive |
 | [JobDetailModal.tsx](../web/src/components/job-assistance/JobDetailModal.tsx) | The window itself — pure presentation |
 | [ContactsTable.tsx](../web/src/components/job-assistance/ContactsTable.tsx) | The contacts grid, read-only |
+| [MissingKeywords.tsx](../web/src/components/job-assistance/MissingKeywords.tsx) | The horizontal keyword checkbox row |
+| [RegenerateProgressModal.tsx](../web/src/components/job-assistance/RegenerateProgressModal.tsx) | Progress popup for a regenerate call, with a confirm-before-cancel step |
 
 The split is deliberate: everything under `lib/api/` is pure functions with no React in them, so [web/tests/lib/api/](../web/tests/lib/api/) can test the whole boundary without rendering anything.
 
@@ -39,6 +42,7 @@ There is no single "job" record. A job in the UI sense is one `jobs` row plus wh
    (Hunter)              (Perplexity)         (Claude)
    → contacts table      → Notes              → both message boxes
                                               → resume button
+                                              → JD match % + keyword chips
 ```
 
 **Only `jobs` is guaranteed.** A job you added a minute ago has no research, no content, and no contacts — that is its normal state, not a broken one. `company_research` and `generated_content` allow many rows per job; the by-job reads take the newest (`id DESC`) and the older ones stay as history the window never shows.
@@ -76,7 +80,7 @@ The synchronous half matters: the window opens instantly with whatever the list 
 | `GET /jobs/:id` | The job row | n/a — always exists |
 | `GET /contacts/by-job/:jobId` | Contacts, most reachable first (`confidence DESC`, then `id`) | `200` + `[]` |
 | `GET /company-research/by-job/:jobId` | Newest research row | `200` + `null` |
-| `GET /generated-content/by-job/:jobId` | Newest generation run | `200` + `null` |
+| `GET /generated-content/by-job/:jobId` | Newest generation run, plus its `missingKeywords` | `200` + `null` |
 
 **None of these 404 for absence** — that contract is what makes the client rule trivially correct: *any non-`ok` response is a real error*. See [the by-job section of data-model.md](data-model.md#the-by-job-routes-never-404) for why, and for the null-vs-undefined trap on the API side.
 
@@ -115,9 +119,15 @@ Number.isInteger(parsed) && parsed > 0 ? parsed : null
 | Contacts → LinkedIn | `contacts` | `linkedin` |
 | Contacts → confidence | `contacts` | `confidence` |
 | Notes | `company_research` | `summary` |
+| Job description | `jobs` | `jobDescription` |
 | Recruiter/HM message | `generated_content` | `outreachMessage` |
 | Follow-up message | `generated_content` | `followupMessage` |
 | Get Tailored Resume (enabled?) | `generated_content` | `tailoredResume` — presence only |
+| Job Description Match: X% (shown at all?) | `generated_content` | `jdMatchPercent` — hidden while `null`, i.e. before the first generation |
+| Missing keyword chips | `missing_keywords` (via `generated_content.missingKeywords`) | `keyword` + `include`, one chip per row |
+| Regenerate Tailored Resume (enabled?) | (derived) | enabled once at least one keyword chip is checked |
+
+The job description textarea is the odd one out: unlike every other field on this list, editing it and clicking Save does **not** persist — same as everything else in the form (see [What isn't wired](#what-isnt-wired)). What *does* reach the backend is whatever `jobs.jobDescription` already held when the row was created or last `PATCH`ed directly; regenerating reads that stored value, not whatever is currently typed in the open window.
 
 Three naming traps live in that table. The `jobs` entity spells it **`jobPostingURL`** (capital URL) while the UI uses `jobPostingUrl`; **`companyPage`** becomes `companyUrl`; and **Notes is research**, not a notes column — there is no free-text notes field anywhere in the schema.
 
@@ -144,7 +154,7 @@ Present in the database, deliberately not surfaced:
 | `company_research.urls` | The sources behind the summary. Nowhere to put them yet |
 | `company_research.company` | Duplicates `jobs.companyName` |
 | `contacts.type` | `personal` vs `generic`; confidence is the more useful signal |
-| `*Usage`, `*Cost` on `generated_content` | Token accounting. Omitted from `ApiGeneratedContent` on purpose — listing them invites someone to render them |
+| `*Usage`, `*Cost`, `regenerateCount` on `generated_content` | Token accounting. Omitted from `ApiGeneratedContent` on purpose — listing them invites someone to render them |
 | `createdAt` / `updatedAt` everywhere | Not interesting to the person applying |
 
 `companyLinkedIn` and `extraURLs` are the two worth revisiting: they cost nothing to add to the grid, and they're already in the draft.
@@ -192,12 +202,19 @@ A counter rather than `AbortController`: it's one line, it covers every superses
 | Notes empty on a job you researched | Research is keyed by `jobId`; check the row actually points at this job |
 | Resume button greyed out | `generated_content.tailoredResume` is null for this job. No content run yet |
 | Resume button enabled, nothing downloads | Expected — no route serves the PDF bytes. The button generates the local `.txt` stub |
+| No match line, no keyword chips | `jdMatchPercent` is `null` — no generation has run for this job yet |
+| Regenerate fails immediately with a 400 | The job has no `jobs.jobDescription` saved. `PATCH /jobs/:id` one in, then retry |
+| Regenerate fails with a 404 about "predates saved resume JSON" | This row was created before the JD-match feature shipped, so it has no `tailoredResumeJson`. Run `POST /generated-content` again for this job first |
 
 ---
 
 ## What isn't wired
 
-**Every write path.** The add form creates a local row and never `POST`s it; Save commits the draft to React state and never `PATCH`es; edited contacts go nowhere. Reload the page and every edit is gone.
+**Every write path except one.** The add form creates a local row and never `POST`s it; Save commits the draft to React state and never `PATCH`es; edited contacts go nowhere. Reload the page and every edit is gone — including anything typed into the job description textarea.
+
+**Regenerate Tailored Resume is the exception.** Clicking it, with at least one keyword checked, fires a real `POST /generated-content/regenerate` — [useRegenerateResume.ts](../web/src/hooks/useRegenerateResume.ts) owns the call, [RegenerateProgressModal.tsx](../web/src/components/job-assistance/RegenerateProgressModal.tsx) shows a four-stage progress popup for it, and the response's `tailoredResume`/`jdMatchPercent` get folded back into the open row on success. Two things worth knowing about it:
+- **The progress stages are cosmetic**, the same way the job-setup pipeline's are — the backend is one POST with no event stream, so the stepper paces a plausible timeline rather than reporting real server progress. It holds at the last stage until the response actually lands.
+- **Cancelling only aborts the browser's request.** The confirm-before-cancel dialog says so: the Claude calls already in flight on the server finish regardless, and the row is still updated when they do. There is no server-side cancellation.
 
 The contacts table is **read-only by design**, not by omission: those rows are lookup results owned by the contacts endpoint and refreshed by re-running the lookup, so a hand correction would be overwritten on the next run.
 

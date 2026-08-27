@@ -43,3 +43,32 @@ export async function apiGet<T>(path: string): Promise<T> {
 
   return (await response.json()) as T;
 }
+
+/**
+ * POSTs JSON to the API. Accepts an optional AbortSignal so long-running
+ * calls (resume regeneration) can be cancelled from the UI — an aborted
+ * fetch rejects with a DOMException named "AbortError", which is rethrown
+ * as-is so callers can tell "user cancelled" from "server down".
+ */
+export async function apiPost<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+      signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    throw new ApiError(0, path, "Couldn't reach the server.");
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, path, `POST ${path} failed (${response.status})`);
+  }
+
+  return (await response.json()) as T;
+}

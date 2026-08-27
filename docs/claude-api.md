@@ -29,7 +29,7 @@ The important idea: **only [`ClaudeService`](../api/src/externalAPIs/claude/clau
 
 | | |
 | --- | --- |
-| **Used for** | Writing things *for* the user: the outreach message, the follow-up message, and the tailored resume |
+| **Used for** | Writing things *for* the user — the outreach message, the follow-up message, the tailored resume — plus scoring that resume against the job description and rewriting it to close the gap |
 | **Entity** | [`GeneratedContent`](../api/src/entities/generatedContent/entities/generated-content.entity.ts) |
 | **Table** | `generated_content` |
 | **Called from** | [`GeneratedContentService.create()`](../api/src/entities/generatedContent/generated-content.service.ts) |
@@ -78,7 +78,7 @@ You'll spend almost all your time in just two of these: **ClaudeService** and **
 
 ---
 
-## The three methods
+## The five methods
 
 ```ts
 draftOutreachMessage(summary: string): Promise<ClaudeTextResult>
@@ -89,22 +89,34 @@ draftResume(
   companyWebsite: string,
   companySummary?: string,
 ): Promise<ClaudeResumeResult>
+scoreResumeMatch(
+  tailoredResume: Record<string, unknown>,
+  jobDescription: string,
+): Promise<ClaudeMatchResult>
+regenerateResume(
+  tailoredResume: Record<string, unknown>,
+  jobDescription: string,
+  keywords: string[],
+): Promise<ClaudeResumeResult>
 ```
 
 - **`draftOutreachMessage`** — a warm first-contact message to a recruiter or hiring manager. It fills Justin's fixed template (`OUTREACH_TEMPLATE`), personalizing only the company name and 2–3 connecting sentences; everything else is copied verbatim.
 - **`draftFollowUpMessage`** — a warm-but-corporate nudge after the outreach, ~90–140 words.
 - **`draftResume`** — rewrites the master CV against one job posting and returns it as **structured JSON** (which then gets rendered to a PDF).
+- **`scoreResumeMatch`** — scores a tailored resume against a job description (0–100) and lists the keywords it's missing. Uses `output_config.format` (a JSON schema), so the response shape is enforced server-side — no fence-stripping, no malformed-JSON failure mode, unlike the two JSON-returning methods above.
+- **`regenerateResume`** — rewrites an *already-tailored* resume to work in a chosen set of keywords, given the saved resume JSON (not the master CV) plus the job description. This is a revision pass, not a fresh tailoring.
 
-The `summary` all three work from is the stored company research — one string. Nothing here talks to the database; the caller fetches the summary and passes it in.
+`draftOutreachMessage`/`draftFollowUpMessage` work from the stored company research summary; `scoreResumeMatch`/`regenerateResume` work from the tailored resume JSON and the job's stored `jobDescription`. Nothing here talks to the database; the caller fetches what it needs and passes it in.
 
-**Two different models, on purpose:**
+**Two model tiers, on purpose:**
 
 | Method | Model | Why |
 | --- | --- | --- |
 | `draftOutreachMessage` / `draftFollowUpMessage` | `claude-sonnet-5` (`MESSAGE_MODEL`) | A short, warm message doesn't need the top-tier model. Runs at `effort: 'medium'`, capped at 1200 output tokens. |
 | `draftResume` | `claude-opus-4-8` (`RESUME_MODEL`) | Rewriting a whole CV against a posting *and* returning valid JSON is the hard job. Capped at 12,000 output tokens. |
+| `scoreResumeMatch` / `regenerateResume` | `claude-opus-5` (`MATCH_MODEL`) | Same reasoning as `draftResume`: the percentage is user-facing and the rewrite has to stay truthful. Same $5/$25 rates as `RESUME_MODEL`. |
 
-Both use `thinking: { type: 'adaptive' }` — Claude decides for itself how much to reason before answering.
+All three model-backed calls use `thinking: { type: 'adaptive' }` — Claude decides for itself how much to reason before answering.
 
 ---
 
@@ -218,11 +230,14 @@ try {
 
 A model with no entry in the price list yields a cost of `0` rather than throwing — a missing rate should never fail a generation you've already been billed for.
 
+**For the JD-match score** — no parsing at all needed beyond `JSON.parse`, because `output_config.format` constrains the schema server-side; Claude cannot reply with prose or a markdown fence here.
+
 So each method hands back a small, tidy object:
 
 ```ts
-interface ClaudeTextResult   { content: string;                    usage: Anthropic.Message['usage']; cost: number }
-interface ClaudeResumeResult { resume: Record<string, unknown>;    usage: Anthropic.Message['usage']; cost: number }
+interface ClaudeTextResult   { content: string;                                        usage: Anthropic.Message['usage']; cost: number }
+interface ClaudeResumeResult { resume: Record<string, unknown>;                        usage: Anthropic.Message['usage']; cost: number }
+interface ClaudeMatchResult  { matchPercent: number; missingKeywords: string[];        usage: Anthropic.Message['usage']; cost: number }
 ```
 
 ### 3. How it gets stored
@@ -230,11 +245,11 @@ interface ClaudeResumeResult { resume: Record<string, unknown>;    usage: Anthro
 [`GeneratedContentService.create()`](../api/src/entities/generatedContent/generated-content.service.ts) is the conductor. In order, it:
 
 1. Reads the master CV from `api/src/CV/resume.json` as **raw text** (it's context for Claude, so it needn't be valid JSON).
-2. Resolves the company name — from the request, else from the `Job` record via `JobsService.findOne()`.
+2. Resolves the company name and job description — from the request, else from the `Job` record via `JobsService.findOne()`. (A job with no stored `jobDescription` falls back to `dto.jobPosting` — see the gotcha below about that usually being a bare URL.)
 3. Pulls the **latest company research** for the job (`companyResearchRepository.findByJobId`). No research → `404`, because there'd be nothing to personalize from.
-4. Calls all three Claude methods with that summary.
-5. Renders the resume JSON to a PDF via [`ResumePdfService`](../api/src/entities/generatedContent/resume-pdf/resume-pdf.service.ts) (Handlebars → Puppeteer) and keeps the **file path**.
-6. Hands one flat object to `GeneratedContentRepository.create()`.
+4. Calls `draftOutreachMessage`, `draftFollowUpMessage`, `draftResume`, then `scoreResumeMatch` on the freshly tailored resume.
+5. Renders the resume JSON to **a PDF and a JSON file** via [`ResumePdfService`](../api/src/entities/generatedContent/resume-pdf/resume-pdf.service.ts) (Handlebars → Puppeteer) and keeps both file names.
+6. Hands one flat object to `GeneratedContentRepository.create()`, then writes the scored keywords to `missing_keywords` via `MissingKeywordRepository.replaceForContent()`.
 
 Which lands in `generated_content` like this:
 
@@ -243,12 +258,16 @@ Which lands in `generated_content` like this:
 | `jobId` | `integer` | the request |
 | `outreachMessage` | `text` | `draftOutreachMessage().content` |
 | `followupMessage` | `text` | `draftFollowUpMessage().content` |
-| `tailoredResume` | `text` | the **PDF path** — not the JSON. The JSON is rendered and discarded. |
-| `outreachMessageUsage` / `followupMessageUsage` / `tailoredResumeUsage` | `jsonb` | the raw `usage` block from each call |
+| `tailoredResume` | `text` | the PDF's file name |
+| `tailoredResumeJson` | `jsonb` | the resume JSON itself — **no longer discarded**, this is what `regenerateResume()` reads back in |
+| `tailoredResumeJsonPath` | `text` | the JSON's file name, saved alongside the PDF |
+| `jdMatchPercent` | `integer` | `scoreResumeMatch().matchPercent` |
+| `outreachMessageUsage` / `followupMessageUsage` / `tailoredResumeUsage` / `jdMatchUsage` | `jsonb` | the raw `usage` block from each call |
 | `outreachMessageCost` / `followupMessageCost` / `tailoredResumeCost` | `double precision` | `costFromUsage(...)` for each call |
+| `jdMatchCost` / `regenerateCost` | `double precision` | `costFromUsage(...)`, **accumulated** across every score/regenerate call on the row |
 | `created_at` / `updated_at` | `timestamp` | TypeORM |
 
-Storing usage *and* cost side by side is deliberate: `usage` is the receipt from Anthropic and never changes, while `cost` is our own estimate against a price list that can go stale. If rates change you can re-derive every cost from the stored `usage`.
+Storing usage *and* cost side by side is deliberate: `usage` is the receipt from Anthropic and never changes, while `cost` is our own estimate against a price list that can go stale. For the message and resume columns this means you can re-derive every cost from the stored `usage`. **`jdMatchCost`/`regenerateCost` are the one place that invariant breaks on purpose** — they're a running total across every call a row has ever had, while `jdMatchUsage`/`regenerateUsage` hold only the *latest* call's counts. A `regenerateCount` column on the row tells you how many calls contributed to that total; there's no per-call history to re-sum from.
 
 ---
 
@@ -375,6 +394,7 @@ Current rates, per 1,000,000 tokens — these are what [claude.pricing.ts](../ap
 | Model | Input | Output |
 | --- | --- | --- |
 | `claude-opus-4-8` (resume) | $5 | $25 |
+| `claude-opus-5` (JD-match score, regenerate) | $5 | $25 |
 | `claude-sonnet-5` (messages) | **$2 → $3** | **$10 → $15** |
 
 > **Sonnet 5 is on introductory pricing through 2026-08-31.** From 2026-09-01 it bills at $3 / $15 — a 50% jump. `costFromUsage` already handles the switch by date, so nothing breaks; your per-message cost just rises. One drafted message stays well under $0.04 either way.
@@ -393,7 +413,7 @@ Other levers:
 - **`ClaudeModule` is deliberately *not* loaded app-wide.** The client needs `ANTHROPIC_API_KEY` the moment the module loads, so if it were always on, the app would crash on startup without a key. Instead you add `imports: [ClaudeModule]` only to the feature modules that use it.
 - **The API has no memory.** Each call is independent. The three drafting calls know nothing about each other — they each get the same summary and work alone.
 - **Prompts are shared with Ollama.** [claude.constants.ts](../api/src/externalAPIs/claude/claude.constants.ts) is written to be model-agnostic so the same outreach/follow-up prompts can run locally through `OllamaService` (not implemented yet).
-- **`generated_content` stores the resume's *path*, not its text.** The JSON Claude returns is rendered to a PDF and the file path is what's saved. If you need the JSON later, you'd have to re-generate.
+- **`generated_content` stores the resume's JSON, not just its PDF.** `tailoredResumeJson` holds the exact object Handlebars rendered, and `tailoredResumeJsonPath` names a `.json` file saved next to the PDF on the resume-storage volume. This is what makes `regenerateResume()` possible without a full re-tailor. It's stored in both places on purpose: the volume can be wiped independently of Postgres, so the jsonb column is what `regenerate()` actually reads — the file is for inspection and future use, not a dependency.
 - **Long answers should stream.** For big outputs, `this.anthropic.messages.stream({...})` avoids HTTP timeouts. Not needed at our current `max_tokens`; worth remembering if the resume cap ever grows.
 - **Production gets the key differently.** The prod image has no `api/.env`, so the key comes through the container environment instead. [infra/docker-compose.prod.yml](../infra/docker-compose.prod.yml) already declares `ANTHROPIC_API_KEY` — supply its value at deploy time (an exported shell variable or `--env-file`).
 
@@ -405,7 +425,7 @@ Other levers:
 | --- | --- |
 | [api/src/externalAPIs/claude/anthropic.provider.ts](../api/src/externalAPIs/claude/anthropic.provider.ts) | Builds the Anthropic client from the API key |
 | [api/src/externalAPIs/claude/claude.service.ts](../api/src/externalAPIs/claude/claude.service.ts) | The wrapper you call (`ClaudeService`) — add your methods here |
-| [api/src/externalAPIs/claude/claude.constants.ts](../api/src/externalAPIs/claude/claude.constants.ts) | System prompts, the outreach template, and `MESSAGE_MODEL` |
+| [api/src/externalAPIs/claude/claude.constants.ts](../api/src/externalAPIs/claude/claude.constants.ts) | System prompts, the outreach template, and the model constants (`MESSAGE_MODEL`, `MATCH_MODEL`) |
 | [api/src/externalAPIs/claude/claude.pricing.ts](../api/src/externalAPIs/claude/claude.pricing.ts) | Per-call USD cost estimation from a `usage` block |
 | [api/src/externalAPIs/claude/claude.module.ts](../api/src/externalAPIs/claude/claude.module.ts) | The NestJS module to import into your feature modules |
 | [api/src/entities/generatedContent/](../api/src/entities/generatedContent/) | The entity that consumes it — service, repository, entity, PDF renderer |

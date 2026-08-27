@@ -3,6 +3,7 @@ import type {
   ApiContact,
   ApiGeneratedContent,
   ApiJob,
+  ApiMissingKeyword,
 } from "@/lib/api/types";
 
 /**
@@ -22,8 +23,18 @@ export function buildApiJob(overrides: Partial<ApiJob> = {}): ApiJob {
     status: "applied",
     dateApplied: "2026-07-03",
     dateLastContacted: "2026-07-09",
+    jobDescription: "We are looking for a Senior Backend Engineer with Node.js…",
     createdAt: "2026-07-03T10:00:00.000Z",
     updatedAt: "2026-07-09T10:00:00.000Z",
+    ...overrides,
+  };
+}
+
+export function buildApiMissingKeyword(overrides: Partial<ApiMissingKeyword> = {}): ApiMissingKeyword {
+  return {
+    id: 41,
+    keyword: "Kubernetes",
+    include: false,
     ...overrides,
   };
 }
@@ -69,6 +80,8 @@ export function buildApiGeneratedContent(
     outreachMessage: "Hi Dana, following up on...",
     followupMessage: "Just checking in...",
     tailoredResume: "Jane_Doe_Willow_Oak_1.pdf",
+    jdMatchPercent: 72,
+    missingKeywords: [buildApiMissingKeyword()],
     createdAt: "2026-07-03T10:00:00.000Z",
     updatedAt: "2026-07-03T10:00:00.000Z",
     ...overrides,
@@ -90,6 +103,8 @@ export interface MockApiOptions {
   contacts?: ByJob<ApiContact[]>;
   research?: ByJob<ApiCompanyResearch | null>;
   content?: ByJob<ApiGeneratedContent | null>;
+  /** Response for POST /generated-content/regenerate. */
+  regenerate?: ApiGeneratedContent;
   /** Substring of a path that should fail, e.g. "/jobs" or "/contacts". */
   failOn?: string;
   /** Status for the failing route; 0 simulates never reaching the server. */
@@ -106,6 +121,7 @@ export function mockApi(options: MockApiOptions = {}): jest.Mock {
     contacts = [buildApiContact()],
     research = buildApiCompanyResearch(),
     content = buildApiGeneratedContent(),
+    regenerate = buildApiGeneratedContent({ jdMatchPercent: 88 }),
     failOn,
     failStatus = 500,
   } = options;
@@ -116,6 +132,10 @@ export function mockApi(options: MockApiOptions = {}): jest.Mock {
     if (failOn && url.includes(failOn)) {
       if (failStatus === 0) throw new TypeError("Failed to fetch");
       return { ok: false, status: failStatus, json: async () => ({}) } as Response;
+    }
+
+    if (url.includes("/generated-content/regenerate")) {
+      return { ok: true, status: 201, json: async () => regenerate } as Response;
     }
 
     // Every by-job route ends in the job id, so one parse serves all three.

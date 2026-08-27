@@ -93,6 +93,71 @@ export class GeneratedContent {
     @Column({ type: 'float', nullable: true })
     tailoredResumeCost?: number;
 
+    @ApiProperty({
+        description:
+            'The exact resume JSON the current tailoredResume PDF was rendered from — what regenerate() reads',
+        nullable: true,
+    })
+    @Column({ type: 'jsonb', nullable: true })
+    tailoredResumeJson?: Record<string, unknown>;
+
+    @ApiProperty({
+        example: 'John_Doe_Acme_Corp_1.json',
+        description: 'File name of the tailored resume JSON, saved alongside the PDF',
+        nullable: true,
+    })
+    @Column({ type: 'text', nullable: true })
+    tailoredResumeJsonPath?: string;
+
+    @ApiProperty({
+        example: 72,
+        description: 'How well the tailored resume matches the job description, 0-100',
+        nullable: true,
+    })
+    @Column({ type: 'int', nullable: true })
+    jdMatchPercent?: number;
+
+    @ApiProperty({
+        description: 'Token usage for the most recent JD-match scoring call',
+        example: { input_tokens: 3000, output_tokens: 400 },
+        nullable: true,
+    })
+    @Column({ type: 'jsonb', nullable: true })
+    jdMatchUsage?: Anthropic.Message['usage'];
+
+    @ApiProperty({
+        example: 0.0231,
+        description:
+            'Cumulative estimated USD cost of all JD-match scoring calls for this row',
+        nullable: true,
+    })
+    @Column({ type: 'float', nullable: true })
+    jdMatchCost?: number;
+
+    @ApiProperty({
+        description: 'Token usage for the most recent resume-regeneration call',
+        example: { input_tokens: 6000, output_tokens: 4000 },
+        nullable: true,
+    })
+    @Column({ type: 'jsonb', nullable: true })
+    regenerateUsage?: Anthropic.Message['usage'];
+
+    @ApiProperty({
+        example: 0.1314,
+        description:
+            'Cumulative estimated USD cost of all resume-regeneration calls for this row',
+        nullable: true,
+    })
+    @Column({ type: 'float', nullable: true })
+    regenerateCost?: number;
+
+    @ApiProperty({
+        example: 0,
+        description: 'How many times the tailored resume has been regenerated',
+    })
+    @Column({ type: 'int', default: 0 })
+    regenerateCount: number;
+
     @ApiProperty()
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date;

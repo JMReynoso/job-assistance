@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryDeepPartialEntity, Repository } from 'typeorm';
 import { BaseRepository } from '../base.repository';
 import { UpdateGeneratedContentDto } from './dto/update-generated-content.dto';
 import { GeneratedContent } from './entities/generated-content.entity';
@@ -61,6 +61,29 @@ export class GeneratedContentRepository extends BaseRepository {
             this.repository.update(id, dto),
         );
         return this.findById(id);
+    }
+
+    /**
+     * Internal counterpart to {@link update}: writes server-computed columns
+     * (usage, cost, match score, regenerate count…) that never appear on
+     * {@link UpdateGeneratedContentDto} because a client never supplies them.
+     * Used by regenerate() to persist its result in one place.
+     */
+    async updateFields(
+        id: number,
+        patch: Partial<GeneratedContent>,
+    ): Promise<GeneratedContent> {
+        return this.run(`updating generated content ${id}`, async () => {
+            // TypeORM's QueryDeepPartialEntity recursively maps jsonb object
+            // columns in a way a plain Record<string, unknown> value can't
+            // satisfy structurally, even though it's exactly what's stored.
+            // The cast stays local to this one call, not the public signature.
+            await this.repository.update(
+                id,
+                patch as QueryDeepPartialEntity<GeneratedContent>,
+            );
+            return this.repository.findOneOrFail({ where: { id } });
+        });
     }
 
     async delete(id: number): Promise<boolean> {

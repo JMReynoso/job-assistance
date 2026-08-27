@@ -29,9 +29,12 @@ export function buildJob(overrides: Partial<Job> = {}): Job {
     jobPostingUrl: "",
     companyLinkedInUrl: "",
     extraLinks: "",
+    jobDescription: "",
     notes: "Reached out after the info session.",
     recruiterMessage: "",
     followupMessage: "",
+    jdMatchPercent: null,
+    missingKeywords: [],
     ...overrides,
   };
 }

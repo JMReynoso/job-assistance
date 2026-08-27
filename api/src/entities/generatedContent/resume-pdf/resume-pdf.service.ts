@@ -10,12 +10,21 @@ import { ConfigService } from '@nestjs/config';
 import Handlebars from 'handlebars';
 import puppeteer, { Browser } from 'puppeteer-core';
 
+/** File names of the two files a single render writes to the storage volume. */
+export interface RenderedResume {
+    /** `<Applicant>_<Company>_<jobId>.pdf` */
+    pdfFileName: string;
+    /** `<Applicant>_<Company>_<jobId>.json` — the exact JSON the PDF was rendered from. */
+    jsonFileName: string;
+}
+
 /**
  * Renders a tailored resume (the JSON from {@link ClaudeService.draftResume})
- * to a PDF via a Handlebars template + headless Chromium, and saves it to the
- * configured storage directory — a Docker volume when running in a container.
- * Returns the stored file name (relative to RESUME_STORAGE_DIR) for the caller
- * to persist on the generated_content row.
+ * to a PDF via a Handlebars template + headless Chromium, and saves both the
+ * PDF and the source JSON to the configured storage directory — a Docker
+ * volume when running in a container. Returns the two stored file names
+ * (relative to RESUME_STORAGE_DIR) for the caller to persist on the
+ * generated_content row.
  */
 @Injectable()
 export class ResumePdfService {
@@ -40,24 +49,30 @@ export class ResumePdfService {
     }
 
     /**
-     * Renders `resume` to a PDF and saves it via {@link saveResumePdf},
-     * returning the stored file name (relative to RESUME_STORAGE_DIR). The file
-     * is named `<Applicant>_<Company>_<jobId>.pdf`, where the applicant comes
-     * from the resume's `name` field and `companyName`/`jobId` from the caller;
-     * the jobId keeps file names unique across jobs at the same company.
+     * Renders `resume` to a PDF and saves both it and the source JSON,
+     * returning the two stored file names (relative to RESUME_STORAGE_DIR).
+     * Both are named `<Applicant>_<Company>_<jobId>.{pdf,json}`, where the
+     * applicant comes from the resume's `name` field and `companyName`/`jobId`
+     * from the caller; the jobId keeps file names unique across jobs at the
+     * same company, and regenerating the same job overwrites both.
      */
     async renderResume(
         resume: Record<string, unknown>,
         companyName: string,
         jobId: number,
-    ): Promise<string> {
+    ): Promise<RenderedResume> {
         const html = this.template(resume);
         const pdf = await this.htmlToPdf(html);
 
         const applicantName =
             typeof resume.name === 'string' ? resume.name : 'Resume';
 
-        return this.saveResumePdf(pdf, applicantName, companyName, jobId);
+        const [pdfFileName, jsonFileName] = await Promise.all([
+            this.saveResumePdf(pdf, applicantName, companyName, jobId),
+            this.saveResumeJson(resume, applicantName, companyName, jobId),
+        ]);
+
+        return { pdfFileName, jsonFileName };
     }
 
     /** Compiles the bundled Handlebars template once, at construction. */
@@ -134,6 +149,29 @@ export class ResumePdfService {
         await writeFile(filePath, pdf);
 
         this.logger.log(`Saved tailored resume PDF: ${filePath}`);
+
+        return fileName;
+    }
+
+    /**
+     * Writes the resume JSON beside its PDF and returns the stored file name.
+     * Same base name and directory as the PDF so the two always travel
+     * together; regenerating the same job overwrites both.
+     */
+    private async saveResumeJson(
+        resume: Record<string, unknown>,
+        applicantName: string,
+        companyName: string,
+        jobId: number,
+    ): Promise<string> {
+        await mkdir(this.storageDir, { recursive: true });
+
+        const fileName = `${this.toFileSegment(applicantName)}_${this.toFileSegment(companyName)}_${jobId}.json`;
+        const filePath = join(this.storageDir, fileName);
+
+        await writeFile(filePath, JSON.stringify(resume, null, 2), 'utf-8');
+
+        this.logger.log(`Saved tailored resume JSON: ${filePath}`);
 
         return fileName;
     }

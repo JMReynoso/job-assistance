@@ -1,11 +1,12 @@
 "use client";
 
-import type { Job } from "@/lib/job-assistance/types";
+import type { Job, JobKeyword } from "@/lib/job-assistance/types";
 import type { DetailStatus } from "@/hooks/useJobTracker";
 import { OPEN_BUTTON_BG, OPEN_BUTTON_COLOR, STATUS_OPTIONS } from "@/lib/job-assistance/constants";
 import { isStale } from "@/lib/job-assistance/date";
 import ContactsTable from "./ContactsTable";
 import FormField from "./FormField";
+import MissingKeywords from "./MissingKeywords";
 import SelectField from "./SelectField";
 import TextAreaField from "./TextAreaField";
 
@@ -22,6 +23,12 @@ interface JobDetailModalProps {
   onRetryDetail?: () => void;
   /** The generated resume's file name, or null when none exists yet. */
   resumeFileName?: string | null;
+  /** 0-100, or null when the tailored resume hasn't been scored yet. */
+  jdMatchPercent?: number | null;
+  missingKeywords?: JobKeyword[];
+  onToggleKeyword?: (keyword: string) => void;
+  onRegenerate?: () => void;
+  regenerating?: boolean;
 }
 
 export default function JobDetailModal({
@@ -35,6 +42,11 @@ export default function JobDetailModal({
   detailStatus = "idle",
   onRetryDetail,
   resumeFileName = null,
+  jdMatchPercent = null,
+  missingKeywords = [],
+  onToggleKeyword,
+  onRegenerate,
+  regenerating = false,
 }: JobDetailModalProps) {
   const title = draft.companyName.trim() || "Job details";
   const contactStale = isStale(draft.dateLastContacted);
@@ -152,6 +164,15 @@ export default function JobDetailModal({
 
             <TextAreaField
               className="mt-[18px]"
+              label="Job description"
+              value={draft.jobDescription}
+              onChange={(v) => onFieldChange("jobDescription", v)}
+              placeholder="Paste the full job posting text here — this is what the resume is tailored and scored against…"
+              minHeight={150}
+            />
+
+            <TextAreaField
+              className="mt-[18px]"
               label="Recruiter/HM message"
               value={draft.recruiterMessage}
               onChange={(v) => onFieldChange("recruiterMessage", v)}
@@ -183,6 +204,46 @@ export default function JobDetailModal({
                 <span className="text-[16px] leading-none">↓</span> Get Tailored Resume
               </button>
             </div>
+
+            {jdMatchPercent !== null && (
+              <div className="mt-4">
+                <div className="text-[14px] font-semibold text-ink">
+                  Job Description Match: {jdMatchPercent}%
+                </div>
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-table-border">
+                  <div
+                    className="h-full rounded-full bg-sage transition-all duration-500"
+                    style={{ width: `${jdMatchPercent}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {missingKeywords.length > 0 && (
+              <MissingKeywords
+                className="mt-4"
+                keywords={missingKeywords}
+                onToggle={(k) => onToggleKeyword?.(k)}
+                disabled={regenerating}
+              />
+            )}
+
+            {missingKeywords.length > 0 && (
+              <div className="mt-4 flex justify-start">
+                <button
+                  onClick={onRegenerate}
+                  disabled={regenerating || !missingKeywords.some((k) => k.include)}
+                  title={
+                    missingKeywords.some((k) => k.include)
+                      ? undefined
+                      : "Check at least one keyword to add to your resume"
+                  }
+                  className="inline-flex items-center gap-[9px] rounded-xl bg-sage px-5 py-[11px] text-[14px] font-semibold text-white enabled:hover:brightness-105 disabled:cursor-not-allowed disabled:bg-[#e6e0d1] disabled:text-[#b3aa98]"
+                >
+                  <span className="text-[16px] leading-none">↻</span> Regenerate Tailored Resume
+                </button>
+              </div>
+            )}
 
             <div className="mt-4 flex justify-end border-t border-row-border pt-4">
               <button

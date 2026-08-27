@@ -12,7 +12,7 @@ interface AddJobFormProps {
 
 const FIELDS: { key: keyof HomeFormState; label: string; placeholder: string }[] = [
   { key: "companyName", label: "Company name", placeholder: "e.g. Willow & Oak" },
-  { key: "jobPosting", label: "Job posting URL", placeholder: "https://…/careers/role" },
+  { key: "jobPosting", label: "Job posting link", placeholder: "https://…/careers/role" },
   { key: "companyPage", label: "Company page", placeholder: "https://company.com" },
   { key: "companyLinkedIn", label: "Company LinkedIn", placeholder: "https://linkedin.com/company/…" },
 ];
@@ -34,6 +34,15 @@ export default function AddJobForm({ home, onFieldChange, onAdd }: AddJobFormPro
           />
         ))}
       </div>
+
+      <TextAreaField
+        className="mb-5"
+        label="Job description"
+        value={home.jobDescription}
+        onChange={(value) => onFieldChange("jobDescription", value)}
+        placeholder="Paste the full job posting text here — this is what your resume gets tailored and scored against…"
+        minHeight={150}
+      />
 
       <TextAreaField
         className="mb-5"
