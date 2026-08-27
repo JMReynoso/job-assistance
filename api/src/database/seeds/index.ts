@@ -5,16 +5,20 @@ import { jobsSeed } from './jobs.seed';
 import { companyResearchSeed } from './company-research.seed';
 import { generatedContentSeed } from './generated-content.seed';
 import { contactsSeed } from './contacts.seed';
+import { missingKeywordsSeed } from './missing-keywords.seed';
 import { Seed } from './seed.interface';
 
 // Register seeds here, in the order they should run. Jobs come before
 // company_research / generated_content / contacts, which reference jobs by jobId.
+// missing_keywords comes last: it is the one table with a real foreign key, so
+// its parent generated_content rows must exist or the insert is rejected.
 const seeds: Seed[] = [
     exampleSeed,
     jobsSeed,
     companyResearchSeed,
     generatedContentSeed,
     contactsSeed,
+    missingKeywordsSeed,
 ];
 
 /**

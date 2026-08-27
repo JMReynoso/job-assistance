@@ -120,6 +120,23 @@ export const jobSeed: Seed = {
 const seeds: Seed[] = [exampleSeed, jobSeed];
 ```
 
+### Seeding a table with a foreign key
+
+`missing_keywords` is the one table with a real FK (see [data-model.md](data-model.md#missing_keywords--what-the-tailored-resume-is-missing)), which changes two things about its seed:
+
+- **Order is enforced, not just conventional.** It's registered last because Postgres rejects the insert outright if its `generated_content` parent isn't there — where a bad `jobId` on any other table would insert happily as a silent orphan.
+- **It can't hard-code parent ids.** [missing-keywords.seed.ts](../api/src/database/seeds/missing-keywords.seed.ts) looks its content rows up by `jobId` and reads the real `id` off each one, then `continue`s past any job with no content row rather than throwing — seeds run on every boot, and a partial fixture isn't worth blocking startup over.
+
+Verify a seed against a scratch database rather than your dev data — `DB_NAME` is read straight from the environment ([data-source.ts](../api/src/database/data-source.ts)), so nothing has to be truncated to test a re-run:
+
+```bash
+docker exec job-assistant-postgres-1 psql -U postgres -c "CREATE DATABASE seedcheck;"
+docker compose -f infra/docker-compose.dev.yml run --rm --no-deps -e DB_NAME=seedcheck api \
+  sh -c "npm run migration:run && npm run seed"
+# ...inspect, then:
+docker exec job-assistant-postgres-1 psql -U postgres -c "DROP DATABASE seedcheck;"
+```
+
 ### Running seeds
 
 Seeds run **automatically on startup** (unless disabled — see below). To run them manually:
@@ -195,4 +212,5 @@ docker exec job-assistant-postgres-1 psql -U postgres -d job_assistance -c "SELE
 - **`synchronize` is off.** After changing an entity you *must* generate a migration — the table won't update on its own anymore. This is the intended trade-off for having a real migration history.
 - **`migration:generate` diffs against the live DB.** The database must be reachable, and if it already matches your entities you'll get an empty result.
 - **Seeds must stay idempotent** — they run on every startup. Always guard inserts (e.g. the `count() > 0` check above).
+- **That guard also means a new column never reaches an already-seeded database.** Adding a field to a seed file does nothing to a dev DB that already has rows — the seed returns early. `down -v` (or a targeted `PATCH`) is what applies it.
 - **Running the CLI locally (without Docker)** is possible but the project is Docker-first (`node_modules` lives in the container). If you want to run scripts on the host, run `npm ci` in `api/` first; commands then use the `DB_*` defaults (`localhost`).
