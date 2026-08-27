@@ -6,6 +6,7 @@ import {
     HttpCode,
     HttpStatus,
     Param,
+    ParseIntPipe,
     Patch,
     Post,
 } from '@nestjs/common';
@@ -54,6 +55,25 @@ export class ContactsController {
     })
     findAll() {
         return this.contactsService.findAll();
+    }
+
+    @Get('by-job/:jobId')
+    @ApiOperation({
+        summary: 'Get every contact found for a job',
+        description:
+            'Most reachable first (confidence DESC, then id). A job nobody ' +
+            'has been found for yet returns an empty array, not a 404 — ' +
+            'having no contacts is the normal state of a job you just added.',
+    })
+    @ApiParam({ name: 'jobId', type: Number })
+    @ApiResponse({
+        status: 200,
+        description: "The job's contacts, most reachable first.",
+        type: Contact,
+        isArray: true,
+    })
+    findByJob(@Param('jobId', ParseIntPipe) jobId: number): Promise<Contact[]> {
+        return this.contactsService.findByJobId(jobId);
     }
 
     @Get(':id')

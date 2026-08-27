@@ -15,7 +15,7 @@ export function downloadTailoredResume(draft: Job) {
     "TAILORED RESUME",
     "================",
     `Target role: ${name}`,
-    `Message style: ${draft.messageStyle || "—"}`,
+    `Job posting: ${draft.jobPostingUrl || "—"}`,
     `Contact: ${primaryContact?.name || "—"}${primaryContact?.email ? ` <${primaryContact.email}>` : ""}`,
     "",
     "NOTES",

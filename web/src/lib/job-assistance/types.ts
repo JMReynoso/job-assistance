@@ -7,8 +7,6 @@ export type JobStatus =
   | "Rejected"
   | "Ghosted";
 
-export type MessageStyle = "Friendly" | "Formal" | "Casual" | "Direct" | "Enthusiastic";
-
 /** One step of the "Add to tracker" generation pipeline. */
 export type JobStageKey = "created" | "research" | "tailoring" | "contact" | "ready";
 
@@ -23,18 +21,24 @@ export interface JobStage {
 export interface JobContact {
   id: string;
   name: string;
+  /** Free text — Hunter returns arbitrary job titles, not a fixed vocabulary. */
   role: string;
   email: string;
   linkedin: string;
+  /** Hunter's 0–100 deliverability score; null for a contact added by hand. */
+  confidence: number | null;
 }
 
 export interface Job {
+  /**
+   * The backend row id as a string. A job that only exists locally (added but
+   * not yet persisted) has a non-numeric id — see `toJobId` in lib/api/mappers.
+   */
   id: string;
   companyName: string;
   status: JobStatus;
   dateApplied: string;
   dateLastContacted: string;
-  messageStyle: MessageStyle;
   contacts: JobContact[];
   companyUrl: string;
   jobPostingUrl: string;

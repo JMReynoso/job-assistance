@@ -42,6 +42,15 @@ export class GeneratedContentService {
         return generatedContent;
     }
 
+    /**
+     * The latest generation run for a job, or null when it has never been
+     * generated. Not having content yet is the normal state of a job you just
+     * added, so this is a null rather than a 404.
+     */
+    findByJobId(jobId: number): Promise<GeneratedContent | null> {
+        return this.generatedContentRepository.findByJobId(jobId);
+    }
+
     async create(dto: CreateGeneratedContentDto): Promise<GeneratedContent> {
         // The master CV lives at src/CV/resume.json. Read it as raw text (not
         // imported): it's passed to Claude as context, so it needn't be valid

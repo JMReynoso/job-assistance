@@ -25,6 +25,7 @@ export const contactsSeed: Seed = {
                 firstName: 'Jane',
                 lastName: 'Doe',
                 position: 'Engineering Manager',
+                linkedin: 'https://www.linkedin.com/in/janedoe',
                 confidence: 94,
                 type: 'personal' as const,
             },
@@ -34,6 +35,7 @@ export const contactsSeed: Seed = {
                 firstName: 'Riya',
                 lastName: 'Patel',
                 position: 'Technical Recruiter',
+                linkedin: 'https://www.linkedin.com/in/riyapatel',
                 confidence: 88,
                 type: 'personal' as const,
             },
@@ -42,7 +44,7 @@ export const contactsSeed: Seed = {
                 email: 'sam.reed@globex.example.com',
                 firstName: 'Sam',
                 lastName: 'Reed',
-                // Hunter found the address but no job title for this one.
+                // Hunter found the address but no job title or profile here.
                 confidence: 72,
                 type: 'personal' as const,
             },

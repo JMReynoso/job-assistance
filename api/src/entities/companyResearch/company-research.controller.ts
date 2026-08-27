@@ -6,6 +6,7 @@ import {
     HttpCode,
     HttpStatus,
     Param,
+    ParseIntPipe,
     Post,
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -41,6 +42,27 @@ export class CompanyResearchController {
     })
     findAll() {
         return this.companyResearchService.findAll();
+    }
+
+    @Get('by-job/:jobId')
+    @ApiOperation({
+        summary: 'Get the latest company research for a job',
+        description:
+            'A job can be researched more than once; this returns the most ' +
+            'recent run. A job that has never been researched returns null, ' +
+            'not a 404 — having no research yet is the normal state of a job ' +
+            'you just added.',
+    })
+    @ApiParam({ name: 'jobId', type: Number })
+    @ApiResponse({
+        status: 200,
+        description: "The job's latest company research, or null.",
+        type: CompanyResearch,
+    })
+    findByJob(
+        @Param('jobId', ParseIntPipe) jobId: number,
+    ): Promise<CompanyResearch | null> {
+        return this.companyResearchService.findByJobId(jobId);
     }
 
     @Get(':id')

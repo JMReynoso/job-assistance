@@ -1,7 +1,8 @@
 "use client";
 
 import type { Job } from "@/lib/job-assistance/types";
-import { MESSAGE_STYLE_OPTIONS, OPEN_BUTTON_BG, OPEN_BUTTON_COLOR, STATUS_OPTIONS } from "@/lib/job-assistance/constants";
+import type { DetailStatus } from "@/hooks/useJobTracker";
+import { OPEN_BUTTON_BG, OPEN_BUTTON_COLOR, STATUS_OPTIONS } from "@/lib/job-assistance/constants";
 import { isStale } from "@/lib/job-assistance/date";
 import ContactsTable from "./ContactsTable";
 import FormField from "./FormField";
@@ -16,6 +17,11 @@ interface JobDetailModalProps {
   onTrash: () => void;
   onSave: () => void;
   onGetResume: () => void;
+  /** Defaults to "idle" so a job with nothing to fetch renders no chrome. */
+  detailStatus?: DetailStatus;
+  onRetryDetail?: () => void;
+  /** The generated resume's file name, or null when none exists yet. */
+  resumeFileName?: string | null;
 }
 
 export default function JobDetailModal({
@@ -26,9 +32,14 @@ export default function JobDetailModal({
   onTrash,
   onSave,
   onGetResume,
+  detailStatus = "idle",
+  onRetryDetail,
+  resumeFileName = null,
 }: JobDetailModalProps) {
   const title = draft.companyName.trim() || "Job details";
   const contactStale = isStale(draft.dateLastContacted);
+  const loading = detailStatus === "loading";
+  const hasResume = Boolean(resumeFileName);
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-[rgba(45,36,26,0.42)] px-5 py-10">
@@ -59,103 +70,136 @@ export default function JobDetailModal({
           </div>
         </div>
 
-        <div className="p-6">
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Company name" value={draft.companyName} onChange={(v) => onFieldChange("companyName", v)} />
-            <SelectField
-              label="Status"
-              value={draft.status}
-              options={STATUS_OPTIONS}
-              onChange={(v) => onFieldChange("status", v as Job["status"])}
+        {loading && (
+          <div className="mx-6 mt-5 flex items-center gap-2.5 rounded-xl bg-[#faf7f0] px-4 py-3 text-[13px] text-muted-2">
+            <span
+              aria-hidden
+              className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-sage/30 border-t-sage"
             />
-            <FormField
-              label="Date applied"
-              type="date"
-              value={draft.dateApplied}
-              onChange={(v) => onFieldChange("dateApplied", v)}
-            />
-            <FormField
-              label="Date last contacted"
-              type="date"
-              value={draft.dateLastContacted}
-              onChange={(v) => onFieldChange("dateLastContacted", v)}
-              inputStyle={{
-                borderColor: contactStale ? "#d99a89" : "#e0d9c8",
-                background: contactStale ? "#f8ddd5" : "#fff",
-              }}
-            />
-            <SelectField
-              label="Message style"
-              value={draft.messageStyle}
-              options={MESSAGE_STYLE_OPTIONS}
-              onChange={(v) => onFieldChange("messageStyle", v as Job["messageStyle"])}
-            />
-            <FormField
-              label="Company URL"
-              placeholder="https://company.com"
-              value={draft.companyUrl}
-              onChange={(v) => onFieldChange("companyUrl", v)}
-            />
+            <span aria-live="polite">Loading this job&rsquo;s details…</span>
           </div>
+        )}
 
-          <ContactsTable
-            className="mt-5"
-            contacts={draft.contacts}
-            onChange={(contacts) => onFieldChange("contacts", contacts)}
-          />
-
-          <TextAreaField
-            className="mt-5"
-            label="Notes"
-            value={draft.notes}
-            onChange={(v) => onFieldChange("notes", v)}
-            placeholder="Jot down anything — call recaps, next steps, questions to ask…"
-            minHeight={150}
-          />
-
-          <TextAreaField
-            className="mt-[18px]"
-            label="Recruiter/HM message"
-            value={draft.recruiterMessage}
-            onChange={(v) => onFieldChange("recruiterMessage", v)}
-            placeholder="Draft your outreach to the recruiter or hiring manager…"
-            minHeight={110}
-          />
-
-          <TextAreaField
-            className="mt-4"
-            label="Follow-up message"
-            value={draft.followupMessage}
-            onChange={(v) => onFieldChange("followupMessage", v)}
-            placeholder="Draft a follow-up to send after applying or interviewing…"
-            minHeight={110}
-          />
-
-          <div className="mt-4 flex justify-start">
+        {detailStatus === "error" && (
+          <div className="mx-6 mt-5 flex items-center justify-between gap-2.5 rounded-xl bg-[#f8ddd5] px-4 py-3 text-[13px] text-[#a8503b]">
+            <span aria-live="polite">Couldn&rsquo;t load this job&rsquo;s details.</span>
             <button
-              onClick={onGetResume}
-              style={{ background: OPEN_BUTTON_BG, color: OPEN_BUTTON_COLOR, borderColor: `${OPEN_BUTTON_COLOR}22` }}
-              className="inline-flex items-center gap-[9px] rounded-xl border px-5 py-[11px] text-[14px] font-semibold hover:brightness-[0.97]"
+              onClick={onRetryDetail}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-maple px-3.5 py-1.5 text-[13px] font-semibold text-white hover:brightness-105"
             >
-              <span className="text-[16px] leading-none">↓</span> Get Tailored Resume
+              <span aria-hidden className="text-[14px] leading-none">
+                ↻
+              </span>{" "}
+              Try again
             </button>
           </div>
+        )}
 
-          <div className="mt-4 flex justify-end border-t border-row-border pt-4">
-            <button
-              onClick={onSave}
-              disabled={!dirty}
-              style={{
-                background: dirty ? "var(--color-sage)" : "#e6e0d1",
-                color: dirty ? "#fff" : "#b3aa98",
-                cursor: dirty ? "pointer" : "not-allowed",
-              }}
-              className="rounded-xl px-[26px] py-[11px] text-[14px] font-semibold transition-colors duration-200"
-            >
-              {dirty ? "Save changes" : "Saved"}
-            </button>
+        {/* Disabled while loading so the user can't type edits that the
+            arriving response would silently overwrite. A bare <fieldset> brings
+            UA margin/padding/border and min-width:min-content, which would
+            break the grid below — hence the reset classes. */}
+        <fieldset disabled={loading} className="m-0 min-w-0 border-0 p-0 disabled:opacity-60">
+          <div className="p-6">
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Company name" value={draft.companyName} onChange={(v) => onFieldChange("companyName", v)} />
+              <SelectField
+                label="Status"
+                value={draft.status}
+                options={STATUS_OPTIONS}
+                onChange={(v) => onFieldChange("status", v as Job["status"])}
+              />
+              <FormField
+                label="Date applied"
+                type="date"
+                value={draft.dateApplied}
+                onChange={(v) => onFieldChange("dateApplied", v)}
+              />
+              <FormField
+                label="Date last contacted"
+                type="date"
+                value={draft.dateLastContacted}
+                onChange={(v) => onFieldChange("dateLastContacted", v)}
+                inputStyle={{
+                  borderColor: contactStale ? "#d99a89" : "#e0d9c8",
+                  background: contactStale ? "#f8ddd5" : "#fff",
+                }}
+              />
+              <FormField
+                label="Job posting URL"
+                placeholder="https://boards.greenhouse.io/…"
+                value={draft.jobPostingUrl}
+                onChange={(v) => onFieldChange("jobPostingUrl", v)}
+              />
+              <FormField
+                label="Company URL"
+                placeholder="https://company.com"
+                value={draft.companyUrl}
+                onChange={(v) => onFieldChange("companyUrl", v)}
+              />
+            </div>
+
+            <ContactsTable className="mt-5" contacts={draft.contacts} />
+
+            <TextAreaField
+              className="mt-5"
+              label="Notes"
+              value={draft.notes}
+              onChange={(v) => onFieldChange("notes", v)}
+              placeholder="Jot down anything — call recaps, next steps, questions to ask…"
+              minHeight={150}
+            />
+
+            <TextAreaField
+              className="mt-[18px]"
+              label="Recruiter/HM message"
+              value={draft.recruiterMessage}
+              onChange={(v) => onFieldChange("recruiterMessage", v)}
+              placeholder="Draft your outreach to the recruiter or hiring manager…"
+              minHeight={110}
+            />
+
+            <TextAreaField
+              className="mt-4"
+              label="Follow-up message"
+              value={draft.followupMessage}
+              onChange={(v) => onFieldChange("followupMessage", v)}
+              placeholder="Draft a follow-up to send after applying or interviewing…"
+              minHeight={110}
+            />
+
+            <div className="mt-4 flex justify-start">
+              <button
+                onClick={onGetResume}
+                disabled={!hasResume}
+                title={hasResume ? undefined : "No tailored resume has been generated for this job yet"}
+                style={
+                  hasResume
+                    ? { background: OPEN_BUTTON_BG, color: OPEN_BUTTON_COLOR, borderColor: `${OPEN_BUTTON_COLOR}22` }
+                    : { background: "#f0ece2", color: "#b3aa98", borderColor: "transparent", cursor: "not-allowed" }
+                }
+                className="inline-flex items-center gap-[9px] rounded-xl border px-5 py-[11px] text-[14px] font-semibold enabled:hover:brightness-[0.97]"
+              >
+                <span className="text-[16px] leading-none">↓</span> Get Tailored Resume
+              </button>
+            </div>
+
+            <div className="mt-4 flex justify-end border-t border-row-border pt-4">
+              <button
+                onClick={onSave}
+                disabled={!dirty}
+                style={{
+                  background: dirty ? "var(--color-sage)" : "#e6e0d1",
+                  color: dirty ? "#fff" : "#b3aa98",
+                  cursor: dirty ? "pointer" : "not-allowed",
+                }}
+                className="rounded-xl px-[26px] py-[11px] text-[14px] font-semibold transition-colors duration-200"
+              >
+                {dirty ? "Save changes" : "Saved"}
+              </button>
+            </div>
           </div>
-        </div>
+        </fieldset>
       </div>
     </div>
   );

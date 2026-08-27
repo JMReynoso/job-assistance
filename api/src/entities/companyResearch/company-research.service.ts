@@ -28,10 +28,18 @@ export class CompanyResearchService {
         return companyResearch;
     }
 
+    /**
+     * The latest research run for a job, or null when it has never been
+     * researched. Not having research yet is the normal state of a job you just
+     * added, so this is a null rather than a 404.
+     */
+    findByJobId(jobId: number): Promise<CompanyResearch | null> {
+        return this.companyResearchRepository.findByJobId(jobId);
+    }
+
     async create(
         createCompanyResearchDto: CreateCompanyResearchDto,
     ): Promise<CompanyResearch> {
-
         const URLs = [
             createCompanyResearchDto.jobPostingUrl,
             createCompanyResearchDto.companyPageUrl,
@@ -41,10 +49,11 @@ export class CompanyResearchService {
             .map((url) => url.trim())
             .filter((url): url is string => !!url);
 
-        const companyResearch: CompanyResearchResult = await this.perplexityService.research(
-            createCompanyResearchDto.companyName,
-            { verifyUrls: URLs },
-        );
+        const companyResearch: CompanyResearchResult =
+            await this.perplexityService.research(
+                createCompanyResearchDto.companyName,
+                { verifyUrls: URLs },
+            );
 
         return this.companyResearchRepository.create(
             createCompanyResearchDto,

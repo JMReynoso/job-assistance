@@ -35,6 +35,15 @@ export class ContactsService {
     }
 
     /**
+     * Everyone found for a job, most reachable first. A job nobody has been
+     * found for yet returns an empty list — that's the normal state of a job
+     * you just added, not an error.
+     */
+    findByJobId(jobId: number): Promise<Contact[]> {
+        return this.contactsRepository.findByJobId(jobId);
+    }
+
+    /**
      * Finds the people worth reaching out to at a company and saves them
      * against the job. One Hunter domain search in, a list of contacts out.
      *
