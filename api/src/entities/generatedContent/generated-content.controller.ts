@@ -13,6 +13,7 @@ import {
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { GeneratedContentService } from './generated-content.service';
 import { CreateGeneratedContentDto } from './dto/create-generated-content.dto';
+import { RegenerateTailoredResumeDto } from './dto/regenerate-tailored-resume.dto';
 import { UpdateGeneratedContentDto } from './dto/update-generated-content.dto';
 import { GeneratedContent } from './entities/generated-content.entity';
 
@@ -50,9 +51,10 @@ export class GeneratedContentController {
     @ApiOperation({
         summary: 'Get the latest generated content for a job',
         description:
-            'A job can be regenerated; this returns the most recent run. A ' +
-            'job that has never been generated for returns null, not a 404 — ' +
-            'having no content yet is the normal state of a job you just added.',
+            'A job can be regenerated; this returns the most recent run, ' +
+            'including the missing keywords scored against it. A job that ' +
+            'has never been generated for returns null, not a 404 — having ' +
+            'no content yet is the normal state of a job you just added.',
     })
     @ApiParam({ name: 'jobId', type: Number })
     @ApiResponse({
@@ -60,10 +62,22 @@ export class GeneratedContentController {
         description: "The job's latest generated content, or null.",
         type: GeneratedContent,
     })
-    findByJob(
-        @Param('jobId', ParseIntPipe) jobId: number,
-    ): Promise<GeneratedContent | null> {
-        return this.generatedContentService.findByJobId(jobId);
+    findByJob(@Param('jobId', ParseIntPipe) jobId: number) {
+        return this.generatedContentService.findByJobIdWithKeywords(jobId);
+    }
+
+    @Post('regenerate')
+    @ApiOperation({
+        summary:
+            'Rewrite the newest tailored resume with the chosen keywords and re-score it',
+    })
+    @ApiResponse({
+        status: 201,
+        description: 'The updated generated content.',
+        type: GeneratedContent,
+    })
+    regenerate(@Body() dto: RegenerateTailoredResumeDto) {
+        return this.generatedContentService.regenerate(dto);
     }
 
     @Get(':id')

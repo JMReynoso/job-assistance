@@ -1,6 +1,11 @@
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+    BadRequestException,
+    Injectable,
+    Logger,
+    NotFoundException,
+} from '@nestjs/common';
 import {
     ClaudeResumeResult,
     ClaudeService,
@@ -10,9 +15,12 @@ import { CompanyResearchRepository } from '../companyResearch/company-research.r
 import { CompanyResearch } from '../companyResearch/entities/company-research.entity';
 import { JobsService } from '../jobs/jobs.service';
 import { CreateGeneratedContentDto } from './dto/create-generated-content.dto';
+import { RegenerateTailoredResumeDto } from './dto/regenerate-tailored-resume.dto';
 import { UpdateGeneratedContentDto } from './dto/update-generated-content.dto';
 import { GeneratedContent } from './entities/generated-content.entity';
+import { MissingKeyword } from './entities/missing-keyword.entity';
 import { GeneratedContentRepository } from './generated-content.repository';
+import { MissingKeywordRepository } from './missing-keyword.repository';
 import { ResumePdfService } from './resume-pdf/resume-pdf.service';
 
 @Injectable()
@@ -21,6 +29,7 @@ export class GeneratedContentService {
 
     constructor(
         private readonly generatedContentRepository: GeneratedContentRepository,
+        private readonly missingKeywordRepository: MissingKeywordRepository,
         private readonly claudeService: ClaudeService,
         private readonly companyResearchRepository: CompanyResearchRepository,
         private readonly resumePdfService: ResumePdfService,
@@ -51,6 +60,24 @@ export class GeneratedContentService {
         return this.generatedContentRepository.findByJobId(jobId);
     }
 
+    /**
+     * Same as {@link findByJobId}, plus the missing keywords scored against
+     * it — what the job detail window actually needs, in the one request it
+     * already makes.
+     */
+    async findByJobIdWithKeywords(
+        jobId: number,
+    ): Promise<(GeneratedContent & { missingKeywords: MissingKeyword[] }) | null> {
+        const content = await this.generatedContentRepository.findByJobId(jobId);
+        if (!content) {
+            return null; // null, never undefined — Fastify sends an empty body for undefined
+        }
+        const missingKeywords = await this.missingKeywordRepository.findByContentId(
+            content.id,
+        );
+        return { ...content, missingKeywords };
+    }
+
     async create(dto: CreateGeneratedContentDto): Promise<GeneratedContent> {
         // The master CV lives at src/CV/resume.json. Read it as raw text (not
         // imported): it's passed to Claude as context, so it needn't be valid
@@ -64,11 +91,15 @@ export class GeneratedContentService {
         const jobPosting: string = dto.jobPosting;
         const companyWebsite: string = dto.companyWebsite;
 
-        // Company name for the resume PDF file name: prefer the request, else
-        // fall back to the Job record (findOne 404s if the job is missing).
-        const companyName: string =
-            dto.companyName ??
-            (await this.jobsService.findOne(jobId)).companyName;
+        // Fetched once and reused for both the company name fallback and the
+        // job description below (findOne 404s if the job is missing).
+        const job = await this.jobsService.findOne(jobId);
+        const companyName: string = dto.companyName ?? job.companyName;
+
+        // Prefer the stored description; fall back to the DTO for jobs saved
+        // before jobs.jobDescription existed. draftResume has no way to open a
+        // URL, so a URL here means the resume is tailored against nothing.
+        const jobDescription: string = job.jobDescription?.trim() || jobPosting;
 
         // The outreach / follow-up / resume prompts all work from the stored
         // company research. Pull the latest run for this job; without it there's
@@ -94,36 +125,131 @@ export class GeneratedContentService {
         const tailoredResume: ClaudeResumeResult =
             await this.claudeService.draftResume(
                 masterResume,
-                jobPosting,
+                jobDescription,
                 companyWebsite,
                 companySummary,
             );
 
-        // Render the tailored resume JSON to a PDF (Handlebars → Puppeteer),
-        // saved to the storage volume; the stored file name goes on the row.
-        const resumePath: string = await this.resumePdfService.renderResume(
+        // Render the tailored resume JSON to a PDF + JSON (Handlebars →
+        // Puppeteer), both saved to the storage volume; the stored file names
+        // go on the row.
+        const rendered = await this.resumePdfService.renderResume(
             tailoredResume.resume,
             companyName,
             jobId,
         );
         this.logger.log(
             `Tailored resume rendered for job ${jobId} ` +
-                `(${Object.keys(tailoredResume.resume).length} sections) → ${resumePath}`,
+                `(${Object.keys(tailoredResume.resume).length} sections) → ${rendered.pdfFileName}`,
+        );
+
+        // Score the tailored resume against the job description — the
+        // "JD Match %" the job detail window shows, plus the keywords it's
+        // missing.
+        const match = await this.claudeService.scoreResumeMatch(
+            tailoredResume.resume,
+            jobDescription,
         );
 
         // Persist the generated row (jobId + Claude output).
-        return this.generatedContentRepository.create({
+        const saved = await this.generatedContentRepository.create({
             jobId,
             outreachMessage: outreach.content,
             followupMessage: followup.content,
-            tailoredResume: resumePath,
+            tailoredResume: rendered.pdfFileName,
+            tailoredResumeJson: tailoredResume.resume,
+            tailoredResumeJsonPath: rendered.jsonFileName,
             tailoredResumeUsage: tailoredResume.usage,
             outreachMessageUsage: outreach.usage,
             followupMessageUsage: followup.usage,
             tailoredResumeCost: tailoredResume.cost,
             outreachMessageCost: outreach.cost,
             followupMessageCost: followup.cost,
+            jdMatchPercent: match.matchPercent,
+            jdMatchUsage: match.usage,
+            jdMatchCost: match.cost,
+            regenerateCount: 0,
         } as GeneratedContent);
+
+        await this.missingKeywordRepository.replaceForContent(
+            saved.id,
+            match.missingKeywords,
+        );
+
+        return saved;
+    }
+
+    /**
+     * Rewrites the newest tailored resume for a job with the keywords the
+     * user checked, re-renders the PDF, and re-scores the match — updating
+     * that same row in place. Costs accumulate; regenerateCount increments.
+     *
+     * The two drafted messages are deliberately untouched: regenerating is
+     * about the resume, and re-running them would double the cost for no
+     * benefit.
+     */
+    async regenerate(
+        dto: RegenerateTailoredResumeDto,
+    ): Promise<GeneratedContent> {
+        const { jobId, keywords } = dto;
+
+        const content = await this.generatedContentRepository.findByJobId(jobId);
+        if (!content) {
+            throw new NotFoundException(
+                `No generated content found for job ${jobId}`,
+            );
+        }
+        if (!content.tailoredResumeJson) {
+            throw new NotFoundException(
+                `Generated content ${content.id} predates saved resume JSON — regenerate it with POST /generated-content first`,
+            );
+        }
+
+        const job = await this.jobsService.findOne(jobId);
+        const jobDescription = job.jobDescription?.trim();
+        if (!jobDescription) {
+            throw new BadRequestException(
+                `Job ${jobId} has no job description saved — add one before regenerating`,
+            );
+        }
+
+        // Record what the user checked before spending any money, so the
+        // state survives even if Claude then fails.
+        await this.missingKeywordRepository.setIncluded(content.id, keywords);
+
+        const regenerated = await this.claudeService.regenerateResume(
+            content.tailoredResumeJson,
+            jobDescription,
+            keywords,
+        );
+
+        const rendered = await this.resumePdfService.renderResume(
+            regenerated.resume,
+            job.companyName,
+            jobId,
+        );
+
+        // Re-score with the SAME method that produced the original number —
+        // a self-reported score from the rewrite call would not be comparable.
+        const match = await this.claudeService.scoreResumeMatch(
+            regenerated.resume,
+            jobDescription,
+        );
+
+        // The re-score's own missingKeywords list is intentionally discarded:
+        // the checkbox list stays as the user left it.
+
+        return this.generatedContentRepository.updateFields(content.id, {
+            tailoredResume: rendered.pdfFileName,
+            tailoredResumeJson: regenerated.resume,
+            tailoredResumeJsonPath: rendered.jsonFileName,
+            jdMatchPercent: match.matchPercent,
+            jdMatchUsage: match.usage,
+            jdMatchCost: (content.jdMatchCost ?? 0) + match.cost,
+            regenerateUsage: regenerated.usage,
+            regenerateCost: (content.regenerateCost ?? 0) + regenerated.cost,
+            regenerateCount: (content.regenerateCount ?? 0) + 1,
+        });
     }
 
     async update(
