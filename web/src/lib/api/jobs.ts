@@ -1,4 +1,4 @@
-import { apiGet } from "./client";
+import { apiGet, apiPost } from "./client";
 import type {
   ApiCompanyResearch,
   ApiContact,
@@ -42,4 +42,17 @@ export async function fetchJobDetail(jobId: number): Promise<JobDetail> {
   ]);
 
   return { job, contacts, research, content };
+}
+
+/**
+ * Rewrites the newest tailored resume for a job with the checked keywords
+ * and re-scores it. Accepts an AbortSignal so the progress modal's cancel
+ * button can abort the in-flight request.
+ */
+export function regenerateTailoredResume(
+  jobId: number,
+  keywords: string[],
+  signal?: AbortSignal,
+): Promise<ApiGeneratedContent> {
+  return apiPost<ApiGeneratedContent>("/generated-content/regenerate", { jobId, keywords }, signal);
 }
