@@ -1,4 +1,10 @@
-import type { JobStage, JobStageKey } from "./types";
+import type { JobStage, JobStageKey, JobStageStatus } from "./types";
+
+/** Anything with a key and a status — lets both pipelines share these helpers. */
+export interface StageLike {
+  key: string;
+  status: JobStageStatus;
+}
 
 interface StageMeta {
   key: JobStageKey;
@@ -49,21 +55,21 @@ export function initialStages(): JobStage[] {
 }
 
 /** Fill fraction (0–100) for the connecting track: reaches the active node. */
-export function progressPercent(stages: JobStage[]): number {
+export function progressPercent(stages: StageLike[]): number {
   if (stages.length <= 1) return 0;
   const done = stages.filter((s) => s.status === "done").length;
   return Math.min(100, (done / (stages.length - 1)) * 100);
 }
 
-export function isComplete(stages: JobStage[]): boolean {
+export function isComplete(stages: StageLike[]): boolean {
   return stages.length > 0 && stages.every((s) => s.status === "done");
 }
 
 /** The stage currently in flight, if any. */
-export function activeStage(stages: JobStage[]): JobStage | undefined {
+export function activeStage<T extends StageLike>(stages: T[]): T | undefined {
   return stages.find((s) => s.status === "running");
 }
 
-export function failedStage(stages: JobStage[]): JobStage | undefined {
+export function failedStage<T extends StageLike>(stages: T[]): T | undefined {
   return stages.find((s) => s.status === "failed");
 }
