@@ -37,6 +37,8 @@ function ratesFor(model: string, now: Date): ModelRates | undefined {
     switch (model) {
         case 'claude-opus-4-8':
             return { input: 5, output: 25 };
+        case 'claude-opus-5':
+            return { input: 5, output: 25 };
         case 'claude-sonnet-5':
             return now < SONNET_5_INTRO_END
                 ? SONNET_5_INTRO
