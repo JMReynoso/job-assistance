@@ -326,6 +326,132 @@ describe("JobDetailModal", () => {
     expect(screen.getByRole("button", { name: /Get Tailored Resume/i })).toBeEnabled();
   });
 
+  it("hides the match line when the resume hasn't been scored yet", () => {
+    render(
+      <JobDetailModal
+        draft={buildJob()}
+        dirty={false}
+        onFieldChange={jest.fn()}
+        onClose={jest.fn()}
+        onTrash={jest.fn()}
+        onSave={jest.fn()}
+        onGetResume={jest.fn()}
+        jdMatchPercent={null}
+      />,
+    );
+
+    expect(screen.queryByText(/Job Description Match/)).not.toBeInTheDocument();
+  });
+
+  it("shows the match percentage once the resume has been scored", () => {
+    render(
+      <JobDetailModal
+        draft={buildJob()}
+        dirty={false}
+        onFieldChange={jest.fn()}
+        onClose={jest.fn()}
+        onTrash={jest.fn()}
+        onSave={jest.fn()}
+        onGetResume={jest.fn()}
+        jdMatchPercent={72}
+      />,
+    );
+
+    expect(screen.getByText("Job Description Match: 72%")).toBeInTheDocument();
+  });
+
+  it("renders missing-keyword checkboxes and reports toggles", async () => {
+    const user = userEvent.setup({ delay: null });
+    const onToggleKeyword = jest.fn();
+    render(
+      <JobDetailModal
+        draft={buildJob()}
+        dirty={false}
+        onFieldChange={jest.fn()}
+        onClose={jest.fn()}
+        onTrash={jest.fn()}
+        onSave={jest.fn()}
+        onGetResume={jest.fn()}
+        missingKeywords={[{ keyword: "Kubernetes", include: false }]}
+        onToggleKeyword={onToggleKeyword}
+      />,
+    );
+
+    await user.click(screen.getByRole("checkbox", { name: "Kubernetes" }));
+
+    expect(onToggleKeyword).toHaveBeenCalledWith("Kubernetes");
+  });
+
+  it("disables Regenerate until at least one keyword is checked", () => {
+    const { rerender } = render(
+      <JobDetailModal
+        draft={buildJob()}
+        dirty={false}
+        onFieldChange={jest.fn()}
+        onClose={jest.fn()}
+        onTrash={jest.fn()}
+        onSave={jest.fn()}
+        onGetResume={jest.fn()}
+        missingKeywords={[{ keyword: "Kubernetes", include: false }]}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /Regenerate Tailored Resume/i })).toBeDisabled();
+
+    rerender(
+      <JobDetailModal
+        draft={buildJob()}
+        dirty={false}
+        onFieldChange={jest.fn()}
+        onClose={jest.fn()}
+        onTrash={jest.fn()}
+        onSave={jest.fn()}
+        onGetResume={jest.fn()}
+        missingKeywords={[{ keyword: "Kubernetes", include: true }]}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /Regenerate Tailored Resume/i })).toBeEnabled();
+  });
+
+  it("fires onRegenerate when clicked with a keyword checked", async () => {
+    const user = userEvent.setup({ delay: null });
+    const onRegenerate = jest.fn();
+    render(
+      <JobDetailModal
+        draft={buildJob()}
+        dirty={false}
+        onFieldChange={jest.fn()}
+        onClose={jest.fn()}
+        onTrash={jest.fn()}
+        onSave={jest.fn()}
+        onGetResume={jest.fn()}
+        missingKeywords={[{ keyword: "Kubernetes", include: true }]}
+        onRegenerate={onRegenerate}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Regenerate Tailored Resume/i }));
+
+    expect(onRegenerate).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders no keyword chips or Regenerate button when there are none", () => {
+    render(
+      <JobDetailModal
+        draft={buildJob()}
+        dirty={false}
+        onFieldChange={jest.fn()}
+        onClose={jest.fn()}
+        onTrash={jest.fn()}
+        onSave={jest.fn()}
+        onGetResume={jest.fn()}
+        missingKeywords={[]}
+      />,
+    );
+
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Regenerate Tailored Resume/i })).not.toBeInTheDocument();
+  });
+
   it("wires up close, delete, save, and get-resume buttons", async () => {
     const user = userEvent.setup({ delay: null });
     const onClose = jest.fn();
