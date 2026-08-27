@@ -3,21 +3,34 @@
 import { useState } from "react";
 import { useJobTracker } from "@/hooks/useJobTracker";
 import { useJobProgressSimulation } from "@/hooks/useJobProgressSimulation";
+import { useRegenerateResume } from "@/hooks/useRegenerateResume";
+import { toJobId } from "@/lib/api/mappers";
 import { downloadTailoredResume } from "@/lib/job-assistance/generate-resume";
 import NavBar from "./NavBar";
 import AddJobForm from "./AddJobForm";
 import JobTable from "./JobTable";
 import JobDetailModal from "./JobDetailModal";
 import JobProgressModal from "./JobProgressModal";
+import RegenerateProgressModal from "./RegenerateProgressModal";
 import ConfirmCloseModal from "./ConfirmCloseModal";
 import ConfirmDeleteModal from "./ConfirmDeleteModal";
 
 export default function JobAssistanceApp() {
   const tracker = useJobTracker();
   const progress = useJobProgressSimulation();
+  const regen = useRegenerateResume((content) => tracker.applyRegeneratedContent(content));
   const [setupJobId, setSetupJobId] = useState<string | null>(null);
   const draftTitle = tracker.draft?.companyName.trim() || "Job details";
   const setupJob = tracker.jobs.find((j) => j.id === setupJobId) ?? null;
+
+  function handleRegenerate() {
+    if (!tracker.draft) return;
+    const jobId = toJobId(tracker.draft.id);
+    if (jobId === null) return;
+    const keywords = tracker.missingKeywords.filter((k) => k.include).map((k) => k.keyword);
+    if (keywords.length === 0) return;
+    regen.start(jobId, keywords);
+  }
 
   // "Add to tracker" creates the row immediately, then kicks off the
   // generation pipeline (research → tailoring → contact lookup) whose
@@ -88,6 +101,22 @@ export default function JobAssistanceApp() {
           detailStatus={tracker.detailStatus}
           onRetryDetail={tracker.retryDetail}
           resumeFileName={tracker.resumeFileName}
+          jdMatchPercent={tracker.jdMatchPercent}
+          missingKeywords={tracker.missingKeywords}
+          onToggleKeyword={tracker.toggleKeyword}
+          onRegenerate={handleRegenerate}
+          regenerating={regen.active}
+        />
+      )}
+
+      {regen.active && (
+        <RegenerateProgressModal
+          companyName={tracker.draft?.companyName ?? ""}
+          stages={regen.stages}
+          matchPercent={regen.matchPercent}
+          onCancel={regen.cancel}
+          onRetry={regen.retry}
+          onDone={regen.reset}
         />
       )}
 
