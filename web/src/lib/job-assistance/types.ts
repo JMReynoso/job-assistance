@@ -29,6 +29,19 @@ export interface JobContact {
   confidence: number | null;
 }
 
+export interface JobKeyword {
+  keyword: string;
+  include: boolean;
+}
+
+/** Stages of the regenerate-resume pipeline. */
+export type RegenerateStageKey = "keywords" | "rewriting" | "rendering" | "scoring";
+
+export interface RegenerateStage {
+  key: RegenerateStageKey;
+  status: JobStageStatus;
+}
+
 export interface Job {
   /**
    * The backend row id as a string. A job that only exists locally (added but
@@ -44,9 +57,14 @@ export interface Job {
   jobPostingUrl: string;
   companyLinkedInUrl: string;
   extraLinks: string;
+  /** The full job posting text — what the resume is tailored and scored against. */
+  jobDescription: string;
   notes: string;
   recruiterMessage: string;
   followupMessage: string;
+  /** 0-100, or null until the tailored resume has been scored. */
+  jdMatchPercent: number | null;
+  missingKeywords: JobKeyword[];
 }
 
 export interface HomeFormState {
@@ -55,4 +73,5 @@ export interface HomeFormState {
   companyPage: string;
   companyLinkedIn: string;
   extraLinks: string;
+  jobDescription: string;
 }

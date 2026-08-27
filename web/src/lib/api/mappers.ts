@@ -77,9 +77,12 @@ export function mapJob(api: ApiJob): Job {
     jobPostingUrl: api.jobPostingURL,
     companyLinkedInUrl: api.companyLinkedIn,
     extraLinks: api.extraURLs ?? "",
+    jobDescription: api.jobDescription ?? "",
     notes: "",
     recruiterMessage: "",
     followupMessage: "",
+    jdMatchPercent: null,
+    missingKeywords: [],
   };
 }
 
@@ -91,5 +94,13 @@ export function mergeJobDetail(detail: JobDetail): Job {
     notes: detail.research?.summary ?? "",
     recruiterMessage: detail.content?.outreachMessage ?? "",
     followupMessage: detail.content?.followupMessage ?? "",
+    // Stays null rather than coalescing to "" — it drives a "not scored yet"
+    // branch and never binds to a controlled input, so the usual ?? "" rule
+    // doesn't apply here.
+    jdMatchPercent: detail.content?.jdMatchPercent ?? null,
+    missingKeywords: (detail.content?.missingKeywords ?? []).map((k) => ({
+      keyword: k.keyword,
+      include: k.include,
+    })),
   };
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { HomeFormState, Job, JobStatus } from "@/lib/job-assistance/types";
+import type { HomeFormState, Job, JobKeyword, JobStatus } from "@/lib/job-assistance/types";
 import { WARN_ON_CLOSE } from "@/lib/job-assistance/constants";
 import { fetchJobDetail, fetchJobs } from "@/lib/api/jobs";
 import { mapJob, mergeJobDetail, toJobId } from "@/lib/api/mappers";
@@ -12,6 +12,7 @@ const EMPTY_HOME_FORM: HomeFormState = {
   companyPage: "",
   companyLinkedIn: "",
   extraLinks: "",
+  jobDescription: "",
 };
 
 /** Loading state for a fetch that has a retry affordance. */
@@ -44,6 +45,8 @@ export function useJobTracker() {
   const [dirty, setDirty] = useState(false);
   const [detailStatus, setDetailStatus] = useState<DetailStatus>("idle");
   const [resumeFileName, setResumeFileName] = useState<string | null>(null);
+  const [missingKeywords, setMissingKeywords] = useState<JobKeyword[]>([]);
+  const [jdMatchPercent, setJdMatchPercent] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
@@ -93,9 +96,12 @@ export function useJobTracker() {
       jobPostingUrl: home.jobPosting,
       companyLinkedInUrl: home.companyLinkedIn,
       extraLinks: home.extraLinks,
+      jobDescription: home.jobDescription,
       notes: "",
       recruiterMessage: "",
       followupMessage: "",
+      jdMatchPercent: null,
+      missingKeywords: [],
     };
     setJobs((prev) => [newJob, ...prev]);
     setHome(EMPTY_HOME_FORM);
@@ -129,6 +135,8 @@ export function useJobTracker() {
     setDraft({ ...row, contacts: row.contacts.map((c) => ({ ...c })) });
     setDirty(false);
     setResumeFileName(null);
+    setMissingKeywords([]);
+    setJdMatchPercent(null);
 
     const jobId = toJobId(id);
     if (jobId === null) {
@@ -143,6 +151,10 @@ export function useJobTracker() {
       if (detailRequest.current !== request) return;
       setDraft((prev) => (prev && prev.id === id ? mergeJobDetail(detail) : prev));
       setResumeFileName(detail.content?.tailoredResume ?? null);
+      setMissingKeywords(
+        (detail.content?.missingKeywords ?? []).map((k) => ({ keyword: k.keyword, include: k.include })),
+      );
+      setJdMatchPercent(detail.content?.jdMatchPercent ?? null);
       setDetailStatus("loaded");
     } catch {
       if (detailRequest.current !== request) return;
@@ -165,6 +177,27 @@ export function useJobTracker() {
     setDirty(false);
   }
 
+  /**
+   * Flips one keyword's checkbox. Deliberately bypasses setDraftField/dirty:
+   * checking a keyword to regenerate with isn't a draft edit Save persists,
+   * it's input to a separate action (POST /generated-content/regenerate).
+   */
+  function toggleKeyword(keyword: string) {
+    setMissingKeywords((prev) =>
+      prev.map((k) => (k.keyword === keyword ? { ...k, include: !k.include } : k)),
+    );
+  }
+
+  /**
+   * Folds a successful regenerate response back into the open row. Leaves
+   * missingKeywords untouched — the backend deliberately doesn't replace that
+   * list on regenerate, so the user's checkbox state should survive too.
+   */
+  function applyRegeneratedContent(content: { tailoredResume: string | null; jdMatchPercent: number | null }) {
+    setResumeFileName(content.tailoredResume ?? null);
+    setJdMatchPercent(content.jdMatchPercent ?? null);
+  }
+
   function closeNow() {
     // Invalidate any in-flight detail fetch so a late response can't
     // repopulate a modal that's already closed.
@@ -174,6 +207,8 @@ export function useJobTracker() {
     setDirty(false);
     setDetailStatus("idle");
     setResumeFileName(null);
+    setMissingKeywords([]);
+    setJdMatchPercent(null);
     setShowCloseConfirm(false);
     setShowDeleteConfirm(false);
   }
@@ -212,6 +247,10 @@ export function useJobTracker() {
     dirty,
     detailStatus,
     resumeFileName,
+    missingKeywords,
+    jdMatchPercent,
+    toggleKeyword,
+    applyRegeneratedContent,
     openRow,
     retryDetail,
     setDraftField,

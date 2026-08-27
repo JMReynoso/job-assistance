@@ -31,8 +31,15 @@ export interface ApiJob {
   /** 'YYYY-MM-DD'. NOT NULL on the column — every job has one from creation. */
   dateApplied: string;
   dateLastContacted: string;
+  jobDescription: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ApiMissingKeyword {
+  id: number;
+  keyword: string;
+  include: boolean;
 }
 
 export interface ApiContact {
@@ -68,6 +75,9 @@ export interface ApiGeneratedContent {
   followupMessage: string | null;
   /** The PDF's file name, not its contents. No route serves the bytes yet. */
   tailoredResume: string | null;
+  /** 0-100, or null when the resume hasn't been scored yet. */
+  jdMatchPercent: number | null;
+  missingKeywords: ApiMissingKeyword[];
   createdAt: string;
   updatedAt: string;
 }

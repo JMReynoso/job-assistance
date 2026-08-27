@@ -13,6 +13,7 @@ import {
   buildApiContact,
   buildApiGeneratedContent,
   buildApiJob,
+  buildApiMissingKeyword,
 } from "../../mock/api.mock";
 import { buildJob } from "../../mock/jobs.mock";
 
@@ -122,6 +123,15 @@ describe("mapJob", () => {
     expect(job.notes).toBe("");
     expect(job.recruiterMessage).toBe("");
     expect(job.followupMessage).toBe("");
+    expect(job.jdMatchPercent).toBeNull();
+    expect(job.missingKeywords).toEqual([]);
+  });
+
+  it("carries the job description through, coalescing null to empty", () => {
+    expect(mapJob(buildApiJob({ jobDescription: "We need a backend engineer…" })).jobDescription).toBe(
+      "We need a backend engineer…",
+    );
+    expect(mapJob(buildApiJob({ jobDescription: null })).jobDescription).toBe("");
   });
 
   it("produces the same overlapping fields the UI fixture declares", () => {
@@ -178,5 +188,43 @@ describe("mergeJobDetail", () => {
 
     expect(job.recruiterMessage).toBe("");
     expect(job.followupMessage).toBe("");
+  });
+
+  it("carries the match percentage and missing keywords onto the job", () => {
+    const job = mergeJobDetail({
+      job: buildApiJob(),
+      contacts: [],
+      research: null,
+      content: buildApiGeneratedContent({
+        jdMatchPercent: 72,
+        missingKeywords: [buildApiMissingKeyword({ keyword: "Kubernetes", include: true })],
+      }),
+    });
+
+    expect(job.jdMatchPercent).toBe(72);
+    expect(job.missingKeywords).toEqual([{ keyword: "Kubernetes", include: true }]);
+  });
+
+  it("keeps jdMatchPercent null rather than coalescing it to 0 when unscored", () => {
+    const job = mergeJobDetail({
+      job: buildApiJob(),
+      contacts: [],
+      research: null,
+      content: buildApiGeneratedContent({ jdMatchPercent: null }),
+    });
+
+    expect(job.jdMatchPercent).toBeNull();
+  });
+
+  it("defaults jdMatchPercent to null and missingKeywords to empty with no content at all", () => {
+    const job = mergeJobDetail({
+      job: buildApiJob(),
+      contacts: [],
+      research: null,
+      content: null,
+    });
+
+    expect(job.jdMatchPercent).toBeNull();
+    expect(job.missingKeywords).toEqual([]);
   });
 });
