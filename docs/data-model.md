@@ -41,7 +41,8 @@ The arrow matters: **`generated_content` can't be created until `company_researc
 | --- | --- | --- | --- | --- |
 | [`Job`](../api/src/entities/jobs/job.entity.ts) | `jobs` | `/jobs` | you (the request) | The company, its URLs, pipeline status, and the applied / last-contacted dates |
 | [`CompanyResearch`](../api/src/entities/companyResearch/entities/company-research.entity.ts) | `company_research` | `/company-research` | Perplexity Sonar | A research summary + its sources |
-| [`GeneratedContent`](../api/src/entities/generatedContent/entities/generated-content.entity.ts) | `generated_content` | `/generated-content` | Claude | Two drafted messages, a resume PDF path, and what they cost |
+| [`GeneratedContent`](../api/src/entities/generatedContent/entities/generated-content.entity.ts) | `generated_content` | `/generated-content` | Claude | Two drafted messages, a tailored resume (PDF + JSON), its JD-match score, and what all of it cost |
+| [`MissingKeyword`](../api/src/entities/generatedContent/entities/missing-keyword.entity.ts) | `missing_keywords` | *(no own routes — reached via `generated-content`)* | Claude (the JD-match call) | Keywords the tailored resume is missing, and whether the user picked them for a regenerate |
 | [`Contact`](../api/src/entities/contacts/entities/contact.entity.ts) | `contacts` | `/contacts` | Hunter.io | People at the company, with emails |
 | [`Example`](../api/src/entities/example/example.entity.ts) | `examples` | *(not mounted)* | seeds only | A copy-me template, not a real feature |
 
@@ -51,7 +52,7 @@ The arrow matters: **`generated_content` can't be created until `company_researc
 
 - **Primary key** is always `id`, a Postgres `SERIAL` (auto-incrementing integer).
 - **Timestamps** are always `created_at` / `updated_at` (`TIMESTAMP NOT NULL DEFAULT now()`), exposed as `createdAt` / `updatedAt` in TypeScript. Every other column keeps its camelCase name in the database — `"jobId"`, `"companyName"` — which is why they need double quotes in raw SQL.
-- **`jobId` is a plain `integer` with no foreign-key constraint.** The relationship is a convention the code upholds, not something Postgres enforces. See the gaps section below for what that costs.
+- **`jobId` is a plain `integer` with no foreign-key constraint.** The relationship is a convention the code upholds, not something Postgres enforces. See the gaps section below for what that costs. **`missing_keywords` is the one exception** — its `generatedContentId` is a real FK with `ON DELETE CASCADE`.
 - **Anything an external API returned verbatim goes in `jsonb`** (`urls`, `usage`, the three `*Usage` columns) — queryable, but stored without us having to model it.
 - **Request bodies are validated and stripped.** A global `ValidationPipe` with `whitelist: true` means any field not declared on the DTO is silently dropped before your service sees it; `transform: true` turns `"5"` into `5` where the DTO says number.
 - **Errors are consistent:** `400` from validation, `404` raised by the service when a row is missing, `503` when an external API is busy or unreachable, `500` from [`BaseRepository`](../api/src/entities/base.repository.ts) if Postgres itself fails (the real error is logged, never returned). The three `by-job/:jobId` reads are the deliberate exception — they answer `200` with `[]` or `null` rather than 404ing; see [below](#the-by-job-routes-never-404).
@@ -73,6 +74,7 @@ The root record. Created by hand (or by the frontend); everything else reference
 | `companyPage` | `text` | no | Company website — also what Hunter's domain lookup is derived from |
 | `companyLinkedIn` | `text` | no | |
 | `extraURLs` | `text` | **yes** | One extra link (Crunchbase, etc.) |
+| `jobDescription` | `text` | **yes** | The full posting text, pasted once and reused by every `generated_content` create/regenerate |
 | `status` | `text` | no | Default `'not_applied'` |
 | `dateApplied` | `date` | no | Default `CURRENT_DATE` — the day the application went in |
 | `dateLastContacted` | `date` | no | Default `CURRENT_DATE` — the day the company was last heard from |
@@ -159,35 +161,84 @@ One row per generation run: both messages, the resume, and the cost of each. See
 | `outreachMessageCost` | `double precision` | yes | Our USD estimate from those counts |
 | `followupMessageCost` | `double precision` | yes | " |
 | `tailoredResumeCost` | `double precision` | yes | " |
+| `tailoredResumeJson` | `jsonb` | yes | The exact resume JSON the current `tailoredResume` PDF was rendered from — what `regenerate()` reads |
+| `tailoredResumeJsonPath` | `text` | yes | File name of that JSON, saved alongside the PDF on the resume-storage volume |
+| `jdMatchPercent` | `integer` | yes | 0–100, how well the tailored resume matches the job description |
+| `jdMatchUsage` | `jsonb` | yes | Token counts for the **most recent** JD-match scoring call only |
+| `jdMatchCost` | `double precision` | yes | USD estimate, **accumulated across every scoring call** on this row |
+| `regenerateUsage` | `jsonb` | yes | Token counts for the **most recent** regenerate call only |
+| `regenerateCost` | `double precision` | yes | USD estimate, **accumulated across every regenerate call** on this row |
+| `regenerateCount` | `integer` | no | How many times this row has been regenerated; default `0` |
 | `created_at` / `updated_at` | `TIMESTAMP` | no | |
 
-Every content column is nullable so a partial run can still be recorded.
+Every content column is nullable so a partial run can still be recorded. **`*Cost` and `*Usage` disagree on purpose for the JD-match/regenerate pair:** cost is a running total across every call on the row, usage is only the latest call's raw counts — so unlike the message/resume columns, you can't re-derive the full cost history from the stored usage alone.
 
 ### Endpoints
 
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |
-| `POST` | `/generated-content` | `CreateGeneratedContentDto` | `201` — the created row (**three Claude calls + a PDF render; slowest endpoint in the app**) |
+| `POST` | `/generated-content` | `CreateGeneratedContentDto` | `201` — the created row (**four Claude calls + a PDF render; slowest endpoint in the app**) |
 | `GET` | `/generated-content` | — | `200` — all rows |
-| `GET` | `/generated-content/by-job/:jobId` | — | `200` — the newest run for the job, **or `null`** |
+| `GET` | `/generated-content/by-job/:jobId` | — | `200` — the newest run for the job **plus its missing keywords**, or `null` |
 | `GET` | `/generated-content/:id` | — | `200` · `404` |
 | `PATCH` | `/generated-content/:id` | `UpdateGeneratedContentDto` | `200` · `404` — **see the gap below** |
-| `DELETE` | `/generated-content/:id` | — | `204` · `404` |
+| `POST` | `/generated-content/regenerate` | `RegenerateTailoredResumeDto` | `201` — the same row, rewritten and re-scored |
+| `DELETE` | `/generated-content/:id` | — | `204` · `404` — **cascades to `missing_keywords`** |
 
-**`CreateGeneratedContentDto`** — `jobId`, `jobPosting` (the posting text, not a URL), `companyWebsite` required; `companyName` optional (falls back to the `Job` record).
+**`CreateGeneratedContentDto`** — `jobId`, `jobPosting` (the posting text, not a URL), `companyWebsite` required; `companyName` optional (falls back to the `Job` record). `jobPosting` is now a fallback: if the job has a stored `jobDescription`, that's what gets tailored and scored against.
+
+**`RegenerateTailoredResumeDto`** — `jobId` (positive int), `keywords` (`string[]`, the missing keywords the user checked) required. Looks up the newest `generated_content` row for the job and updates it in place — it is not a new row.
 
 ### How rows get written
 
 `GeneratedContentService.create()` is the most involved path in the app:
 
 1. Read the master CV from `api/src/CV/resume.json` as raw text.
-2. Resolve the company name — request, else the `Job` record.
+2. Resolve the company name and job description — request, else the `Job` record. (`draftResume` can't open a URL, so a job with no stored `jobDescription` falling back to a posting *link* means the resume is tailored against nothing meaningful — see [claude-api.md](claude-api.md).)
 3. Load the **latest** `company_research` for the job → **`404` if there is none**.
-4. Three Claude calls off that summary: outreach, follow-up, tailored resume.
-5. Render the resume JSON → PDF (Handlebars + Puppeteer), keep the path.
-6. One `repository.create()` with all of it, costs included.
+4. Four Claude calls: outreach, follow-up, tailored resume, then a JD-match score of that resume against the job description.
+5. Render the resume JSON → PDF **and JSON** (Handlebars + Puppeteer), keeping both file names.
+6. One `repository.create()` with all of it, costs included, then `missing_keywords` rows are written for every keyword the score call returned.
 
 **A job can have many rows.** Nothing stops a second `POST` for the same `jobId`; you get another row, and the older ones stay as history.
+
+**`GeneratedContentService.regenerate()`** is the other write path: it takes the newest row's `tailoredResumeJson`, rewrites it with Claude to work in the checked keywords, re-renders the PDF+JSON, re-scores the match, and updates that **same row** — `regenerateCount` increments and `jdMatchCost`/`regenerateCost` accumulate rather than reset. The two drafted messages are left untouched. The keyword list itself isn't replaced by a regenerate; only each row's `include` flag changes, via `PATCH`-like semantics inside the service (there's no public endpoint for that — it's driven entirely by what `regenerate` is called with).
+
+---
+
+## `missing_keywords` — what the tailored resume is missing
+
+One row per keyword the JD-match scorer found the tailored resume doesn't mention, plus whether the user has chosen to work it into the next regenerate. See [claude-api.md](claude-api.md) for the scoring call.
+
+### Columns
+
+| Column | Type | Null? | Comes from |
+| --- | --- | --- | --- |
+| `id` | `SERIAL` | no | |
+| `generatedContentId` | `integer` | no | FK → `generated_content.id`, **`ON DELETE CASCADE`** |
+| `keyword` | `text` | no | The job description's own wording (e.g. "Kubernetes") |
+| `include` | `boolean` | no | Whether the user checked it for the next regenerate; default `false` |
+| `created_at` / `updated_at` | `TIMESTAMP` | no | |
+
+**Plus a unique index** — `UQ_missing_keywords_content_keyword` on `("generatedContentId", "keyword")`. Makes re-scoring an upsert (`replaceForContent`) rather than risking duplicates, the same reasoning as `UQ_contacts_job_email`.
+
+This is the **only table in the schema with a real foreign key** — see [Known gaps and gotchas](#known-gaps-and-gotchas).
+
+### How rows get written
+
+`GeneratedContentService.create()` calls `missingKeywordRepository.replaceForContent(contentId, keywords)` after the row is created — deletes any existing keywords for that content id, then inserts the fresh list with `include: false`. `regenerate()` instead calls `setIncluded(contentId, keywords)` beforehand, which only flips `include` for the requested keywords and leaves the row set itself alone — the checkbox list a user built up survives a regenerate.
+
+### Seeded fixtures
+
+[missing-keywords.seed.ts](../api/src/database/seeds/missing-keywords.seed.ts) covers all three UI states without a Claude call, so the chips, the checkbox state, and the Regenerate button's enabled/disabled branches are all reachable on a fresh database:
+
+| Seeded job | Match | `regenerateCount` | Keyword rows | State it exercises |
+| --- | --- | --- | --- | --- |
+| 1 · Acme | 91% | 0 | none | "Nothing missing" — no chips, no Regenerate button |
+| 2 · Globex | 64% | 0 | 6, none checked | Freshly scored; Regenerate rendered but disabled |
+| 3 · Initech | 76% | 2 | 5, 3 checked | Post-regeneration; Regenerate enabled |
+
+Every seeded keyword is a phrase that genuinely appears in that job's `jobDescription` and is genuinely absent from that row's `tailoredResumeJson` — unless it's `include: true`, in which case a seeded regenerate has already worked it in. This is the only seed that can't hard-code its parent ids: the FK makes a wrong id a constraint violation rather than a silent orphan, so it looks its `generated_content` rows up by `jobId` and skips any job with no content row.
 
 ---
 
@@ -258,11 +309,12 @@ A dummy entity kept as a copy-me reference for the folder shape (entity / dto / 
 | `GET` | `/company-research/:id` | `200` | |
 | `DELETE` | `/company-research/:id` | `204` | |
 | `GET` | `/generated-content` | `200` | |
-| `POST` | `/generated-content` | `201` | Calls Claude ×3 + renders a PDF |
-| `GET` | `/generated-content/by-job/:jobId` | `200` | Newest run, or `null` |
+| `POST` | `/generated-content` | `201` | Calls Claude ×4 (messages, resume, JD-match score) + renders a PDF |
+| `GET` | `/generated-content/by-job/:jobId` | `200` | Newest run + its missing keywords, or `null` |
 | `GET` | `/generated-content/:id` | `200` | |
 | `PATCH` | `/generated-content/:id` | `200` | See gap below |
-| `DELETE` | `/generated-content/:id` | `204` | |
+| `POST` | `/generated-content/regenerate` | `201` | Calls Claude ×2 (rewrite, re-score); updates the row in place |
+| `DELETE` | `/generated-content/:id` | `204` | Cascades to `missing_keywords` |
 | `GET` | `/contacts` | `200` | |
 | `POST` | `/contacts` | `201` | Calls Hunter; returns an array |
 | `GET` | `/contacts/by-job/:jobId` | `200` | The job's contacts, or `[]` |
@@ -313,9 +365,9 @@ The three external-API modules are deliberately **not** app-wide: each needs its
 ## Known gaps and gotchas
 
 - **`PATCH /generated-content/:id` returns `500` for most bodies.** `UpdateGeneratedContentDto` is `PartialType(CreateGeneratedContentDto)`, so it accepts `jobPosting`, `companyWebsite`, and `companyName` — none of which are columns on the entity. TypeORM throws `EntityPropertyNotFoundError` for any non-column property in an update, which `BaseRepository` turns into a generic 500. Only `jobId` happens to work. The fix is what `contacts` already does: write the update DTO against the row's own fields (`outreachMessage`, `followupMessage`, …) instead of deriving it from the create DTO.
-- **No foreign keys anywhere.** `jobId` is a bare integer, so nothing stops a row pointing at a job that doesn't exist, and `DELETE /jobs/:id` leaves its research, content, and contacts behind as orphans. Cleanup is manual today.
+- **No foreign keys anywhere, except `missing_keywords`.** `jobId` is a bare integer on every other table, so nothing stops a row pointing at a job that doesn't exist, and `DELETE /jobs/:id` leaves its research, content, and contacts behind as orphans. Cleanup is manual today. `missing_keywords.generatedContentId` is the first and only real FK in the schema (`ON DELETE CASCADE`), so `DELETE /generated-content/:id` does clean up its own keyword rows.
 - **`company_research` and `generated_content` allow unlimited rows per job.** Reads that want "the current one" order by `id DESC` and take the newest. `contacts` is the exception — one row per person per job, enforced by the unique index.
 - **`generated_content.tailoredResume` is a file path.** The PDF lives on the `resume-storage` Docker volume; the row just points at it. Delete the row and the file stays; wipe the volume and the path dangles.
-- **Seeds don't re-run on an already-seeded database.** Each seed is guarded by `count() > 0`, so a dev DB that predates the date columns keeps whatever `CURRENT_DATE` backfilled rather than picking up the dates written into [jobs.seed.ts](../api/src/database/seeds/jobs.seed.ts). Harmless — they're valid dates — but `docker compose -f infra/docker-compose.dev.yml down -v` is what gets you the fixtures exactly as written.
+- **Seeds don't re-run on an already-seeded database.** Each seed is guarded by `count() > 0`, so a dev DB seeded before a column existed never picks up the values later written into the seed file. This is now the most likely reason the JD-match feature looks broken: a database seeded before `jobs.jobDescription` and the match columns landed keeps three jobs with a `NULL` description and no match percentage, so no chips render and `POST /generated-content/regenerate` answers `400`. `missing_keywords` is guarded the same way, so it stays empty even though `generated_content` has rows. `docker compose -f infra/docker-compose.dev.yml down -v` is what gets you the fixtures exactly as written; `PATCH /jobs/:id` with a `jobDescription` is the surgical alternative.
 - **No authentication on any endpoint.** Everything is open — fine for local development, not for anything public.
 - **Reads have no pagination or filtering.** `GET /contacts` returns every contact for every job. Fine at seed scale; add a `?jobId=` filter before it isn't.
