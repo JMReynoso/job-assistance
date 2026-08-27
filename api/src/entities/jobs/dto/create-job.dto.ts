@@ -53,6 +53,15 @@ export class CreateJobDto {
     extraURLs?: string;
 
     @ApiPropertyOptional({
+        example: 'We are looking for a Senior Backend Engineer with Node.js…',
+        description:
+            'The full job posting text, reused by every generation and regeneration',
+    })
+    @IsString()
+    @IsOptional()
+    jobDescription?: string;
+
+    @ApiPropertyOptional({
         enum: Status,
         example: Status.NOT_APPLIED,
         description: 'Pipeline status; defaults to not_applied when omitted',
