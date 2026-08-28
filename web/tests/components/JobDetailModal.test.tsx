@@ -297,6 +297,41 @@ describe("JobDetailModal", () => {
     expect(saveButton).toBeEnabled();
   });
 
+  it("shows a save error strip and keeps the button live to retry", () => {
+    render(
+      <JobDetailModal
+        draft={buildJob()}
+        dirty
+        onFieldChange={jest.fn()}
+        onClose={jest.fn()}
+        onTrash={jest.fn()}
+        onSave={jest.fn()}
+        onGetResume={jest.fn()}
+        saveStatus="error"
+      />,
+    );
+
+    expect(screen.getByText(/Couldn.t save your changes/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled();
+  });
+
+  it("shows 'Saving…' and disables the button while a save is in flight", () => {
+    render(
+      <JobDetailModal
+        draft={buildJob()}
+        dirty
+        onFieldChange={jest.fn()}
+        onClose={jest.fn()}
+        onTrash={jest.fn()}
+        onSave={jest.fn()}
+        onGetResume={jest.fn()}
+        saveStatus="saving"
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
+  });
+
   it("disables Get Tailored Resume until one has been generated", () => {
     const { rerender } = render(
       <JobDetailModal

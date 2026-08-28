@@ -1,7 +1,7 @@
 "use client";
 
 import type { Job, JobKeyword } from "@/lib/job-assistance/types";
-import type { DetailStatus } from "@/hooks/useJobTracker";
+import type { DetailStatus, SaveStatus } from "@/hooks/useJobTracker";
 import { OPEN_BUTTON_BG, OPEN_BUTTON_COLOR, STATUS_OPTIONS } from "@/lib/job-assistance/constants";
 import { isStale } from "@/lib/job-assistance/date";
 import ContactsTable from "./ContactsTable";
@@ -21,6 +21,8 @@ interface JobDetailModalProps {
   /** Defaults to "idle" so a job with nothing to fetch renders no chrome. */
   detailStatus?: DetailStatus;
   onRetryDetail?: () => void;
+  /** Save is idle until the button is pressed; "error" shows a retry strip. */
+  saveStatus?: SaveStatus;
   /** The generated resume's file name, or null when none exists yet. */
   resumeFileName?: string | null;
   /** 0-100, or null when the tailored resume hasn't been scored yet. */
@@ -41,6 +43,7 @@ export default function JobDetailModal({
   onGetResume,
   detailStatus = "idle",
   onRetryDetail,
+  saveStatus = "idle",
   resumeFileName = null,
   jdMatchPercent = null,
   missingKeywords = [],
@@ -51,6 +54,7 @@ export default function JobDetailModal({
   const title = draft.companyName.trim() || "Job details";
   const contactStale = isStale(draft.dateLastContacted);
   const loading = detailStatus === "loading";
+  const saving = saveStatus === "saving";
   const hasResume = Boolean(resumeFileName);
 
   return (
@@ -111,7 +115,7 @@ export default function JobDetailModal({
             arriving response would silently overwrite. A bare <fieldset> brings
             UA margin/padding/border and min-width:min-content, which would
             break the grid below — hence the reset classes. */}
-        <fieldset disabled={loading} className="m-0 min-w-0 border-0 p-0 disabled:opacity-60">
+        <fieldset disabled={loading || saving} className="m-0 min-w-0 border-0 p-0 disabled:opacity-60">
           <div className="p-6">
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Company name" value={draft.companyName} onChange={(v) => onFieldChange("companyName", v)} />
@@ -245,18 +249,26 @@ export default function JobDetailModal({
               </div>
             )}
 
-            <div className="mt-4 flex justify-end border-t border-row-border pt-4">
+            <div className="mt-4 flex items-center justify-end gap-3 border-t border-row-border pt-4">
+              {saveStatus === "error" && (
+                <span
+                  aria-live="polite"
+                  className="rounded-xl bg-[#f8ddd5] px-4 py-2 text-[13px] text-[#a8503b]"
+                >
+                  Couldn&rsquo;t save your changes.
+                </span>
+              )}
               <button
                 onClick={onSave}
-                disabled={!dirty}
+                disabled={!dirty || saving}
                 style={{
-                  background: dirty ? "var(--color-sage)" : "#e6e0d1",
-                  color: dirty ? "#fff" : "#b3aa98",
-                  cursor: dirty ? "pointer" : "not-allowed",
+                  background: dirty && !saving ? "var(--color-sage)" : "#e6e0d1",
+                  color: dirty && !saving ? "#fff" : "#b3aa98",
+                  cursor: dirty && !saving ? "pointer" : "not-allowed",
                 }}
                 className="rounded-xl px-[26px] py-[11px] text-[14px] font-semibold transition-colors duration-200"
               >
-                {dirty ? "Save changes" : "Saved"}
+                {saving ? "Saving…" : dirty ? "Save changes" : "Saved"}
               </button>
             </div>
           </div>

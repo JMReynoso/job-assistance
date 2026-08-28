@@ -96,10 +96,11 @@ export default function JobAssistanceApp() {
           onFieldChange={tracker.setDraftField}
           onClose={tracker.requestClose}
           onTrash={tracker.requestDelete}
-          onSave={tracker.saveDraft}
+          onSave={() => void tracker.saveDraft()}
           onGetResume={() => tracker.draft && downloadTailoredResume(tracker.draft)}
           detailStatus={tracker.detailStatus}
           onRetryDetail={tracker.retryDetail}
+          saveStatus={tracker.saveStatus}
           resumeFileName={tracker.resumeFileName}
           jdMatchPercent={tracker.jdMatchPercent}
           missingKeywords={tracker.missingKeywords}
@@ -123,7 +124,7 @@ export default function JobAssistanceApp() {
       {tracker.showCloseConfirm && (
         <ConfirmCloseModal
           title={draftTitle}
-          onSaveAndClose={tracker.saveAndClose}
+          onSaveAndClose={() => void tracker.saveAndClose()}
           onExitWithoutSaving={tracker.exitWithoutSaving}
           onCancel={tracker.cancelClose}
         />
