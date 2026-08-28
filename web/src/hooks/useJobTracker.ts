@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { HomeFormState, Job, JobKeyword, JobStatus } from "@/lib/job-assistance/types";
 import { WARN_ON_CLOSE } from "@/lib/job-assistance/constants";
-import { fetchJobDetail, fetchJobs } from "@/lib/api/jobs";
-import { mapJob, mergeJobDetail, toJobId } from "@/lib/api/mappers";
+import { fetchJobDetail, fetchJobs, updateJobDetail } from "@/lib/api/jobs";
+import { mapJob, mergeJobDetail, toJobDetailPatch, toJobId } from "@/lib/api/mappers";
 
 const EMPTY_HOME_FORM: HomeFormState = {
   companyName: "",
@@ -20,6 +20,9 @@ export type LoadStatus = "loading" | "loaded" | "error";
 
 /** As above, plus "idle" for a job that was never persisted and so never fetched. */
 export type DetailStatus = "idle" | LoadStatus;
+
+/** Save is idle until the button is pressed; "error" leaves the draft dirty. */
+export type SaveStatus = "idle" | "saving" | "error";
 
 function createId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -44,6 +47,7 @@ export function useJobTracker() {
   const [draft, setDraft] = useState<Job | null>(null);
   const [dirty, setDirty] = useState(false);
   const [detailStatus, setDetailStatus] = useState<DetailStatus>("idle");
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [resumeFileName, setResumeFileName] = useState<string | null>(null);
   const [missingKeywords, setMissingKeywords] = useState<JobKeyword[]>([]);
   const [jdMatchPercent, setJdMatchPercent] = useState<number | null>(null);
@@ -134,6 +138,7 @@ export function useJobTracker() {
     // aliasing the live row's array.
     setDraft({ ...row, contacts: row.contacts.map((c) => ({ ...c })) });
     setDirty(false);
+    setSaveStatus("idle");
     setResumeFileName(null);
     setMissingKeywords([]);
     setJdMatchPercent(null);
@@ -171,21 +176,65 @@ export function useJobTracker() {
     setDirty(true);
   }
 
-  function saveDraft() {
-    if (!draft) return;
-    setJobs((prev) => prev.map((j) => (j.id === draft.id ? draft : j)));
-    setDirty(false);
+  /**
+   * Persists the draft. A locally-added job has no backend id, so it keeps the
+   * old state-only behaviour; a persisted job goes through the one PATCH that
+   * fans out across jobs, company_research and missing_keywords.
+   *
+   * The response is server truth for every field, so it replaces the draft
+   * rather than the draft being trusted — a value the API rejected or
+   * normalised shows up immediately instead of only after a reload.
+   *
+   * Returns false when the save failed, so callers can hold the window open.
+   */
+  async function saveDraft(): Promise<boolean> {
+    if (!draft) return false;
+    const id = draft.id;
+    const jobId = toJobId(id);
+
+    if (jobId === null) {
+      setJobs((prev) => prev.map((j) => (j.id === id ? draft : j)));
+      setDirty(false);
+      return true;
+    }
+
+    // Take a ticket without bumping it: closing the window or opening another
+    // row invalidates an in-flight save the same way it invalidates a fetch,
+    // so a late response can't repopulate a window that has moved on.
+    const request = detailRequest.current;
+    setSaveStatus("saving");
+    try {
+      const included = missingKeywords.filter((k) => k.include).map((k) => k.keyword);
+      const detail = await updateJobDetail(jobId, toJobDetailPatch(draft, included));
+      if (detailRequest.current !== request) return false;
+
+      const merged = mergeJobDetail(detail);
+      setDraft((prev) => (prev && prev.id === id ? merged : prev));
+      setJobs((prev) => prev.map((j) => (j.id === id ? merged : j)));
+      setMissingKeywords(merged.missingKeywords);
+      setJdMatchPercent(detail.content?.jdMatchPercent ?? null);
+      setResumeFileName(detail.content?.tailoredResume ?? null);
+      setDirty(false);
+      setSaveStatus("idle");
+      return true;
+    } catch {
+      if (detailRequest.current !== request) return false;
+      // dirty stays true: the edits are still on screen and still unsaved.
+      setSaveStatus("error");
+      return false;
+    }
   }
 
   /**
-   * Flips one keyword's checkbox. Deliberately bypasses setDraftField/dirty:
-   * checking a keyword to regenerate with isn't a draft edit Save persists,
-   * it's input to a separate action (POST /generated-content/regenerate).
+   * Flips one keyword's checkbox. Marks the draft dirty like any other edit:
+   * the checked set is persisted to missing_keywords.include by Save, and is
+   * also what a regenerate is run with.
    */
   function toggleKeyword(keyword: string) {
     setMissingKeywords((prev) =>
       prev.map((k) => (k.keyword === keyword ? { ...k, include: !k.include } : k)),
     );
+    setDirty(true);
   }
 
   /**
@@ -206,6 +255,7 @@ export function useJobTracker() {
     setDraft(null);
     setDirty(false);
     setDetailStatus("idle");
+    setSaveStatus("idle");
     setResumeFileName(null);
     setMissingKeywords([]);
     setJdMatchPercent(null);
@@ -218,9 +268,9 @@ export function useJobTracker() {
     else closeNow();
   }
 
-  function saveAndClose() {
-    saveDraft();
-    closeNow();
+  async function saveAndClose() {
+    if (await saveDraft()) closeNow();
+    else setShowCloseConfirm(false);
   }
 
   function confirmDelete() {
@@ -246,6 +296,7 @@ export function useJobTracker() {
     draft,
     dirty,
     detailStatus,
+    saveStatus,
     resumeFileName,
     missingKeywords,
     jdMatchPercent,

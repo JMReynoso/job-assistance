@@ -1,9 +1,10 @@
-import { apiGet, apiPost } from "./client";
+import { apiGet, apiPatch, apiPost } from "./client";
 import type {
   ApiCompanyResearch,
   ApiContact,
   ApiGeneratedContent,
   ApiJob,
+  ApiJobDetailPatch,
 } from "./types";
 
 /** Everything the detail modal needs for one job, as the API returns it. */
@@ -55,4 +56,16 @@ export function regenerateTailoredResume(
   signal?: AbortSignal,
 ): Promise<ApiGeneratedContent> {
   return apiPost<ApiGeneratedContent>("/generated-content/regenerate", { jobId, keywords }, signal);
+}
+
+/**
+ * Saves the job detail window in one call. The response is a full JobDetail
+ * — the same four pieces fetchJobDetail returns — so the caller can feed it
+ * straight to mergeJobDetail and show server truth rather than its own draft.
+ */
+export function updateJobDetail(
+  jobId: number,
+  patch: ApiJobDetailPatch,
+): Promise<JobDetail> {
+  return apiPatch<JobDetail>(`/jobs/${jobId}/detail`, patch);
 }

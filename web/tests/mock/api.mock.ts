@@ -105,7 +105,11 @@ export interface MockApiOptions {
   content?: ByJob<ApiGeneratedContent | null>;
   /** Response for POST /generated-content/regenerate. */
   regenerate?: ApiGeneratedContent;
-  /** Substring of a path that should fail, e.g. "/jobs" or "/contacts". */
+  /**
+   * Substring of a path that should fail, e.g. "/jobs" or "/contacts". Use
+   * "/detail" to force PATCH /jobs/:id/detail specifically without also
+   * failing the plain GET /jobs/:id fetch.
+   */
   failOn?: string;
   /** Status for the failing route; 0 simulates never reaching the server. */
   failStatus?: number;
@@ -126,7 +130,7 @@ export function mockApi(options: MockApiOptions = {}): jest.Mock {
     failStatus = 500,
   } = options;
 
-  const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
+  const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
 
     if (failOn && url.includes(failOn)) {
@@ -136,6 +140,39 @@ export function mockApi(options: MockApiOptions = {}): jest.Mock {
 
     if (url.includes("/generated-content/regenerate")) {
       return { ok: true, status: 201, json: async () => regenerate } as Response;
+    }
+
+    const detailMatch = url.match(/\/jobs\/(\d+)\/detail$/);
+    if (detailMatch) {
+      const jobId = Number(detailMatch[1]);
+      const patch = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+      const base = jobs.find((j) => j.id === jobId) ?? jobs[0];
+      const res = resolveByJob(research, jobId);
+      const gen = resolveByJob(content, jobId);
+      const { notes, outreachMessage, followupMessage, includedKeywords, ...jobFields } = patch;
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          job: { ...base, ...jobFields },
+          contacts: resolveByJob(contacts, jobId),
+          research: res && notes !== undefined ? { ...res, summary: notes } : res,
+          content:
+            gen &&
+            {
+              ...gen,
+              ...(outreachMessage !== undefined ? { outreachMessage } : {}),
+              ...(followupMessage !== undefined ? { followupMessage } : {}),
+              missingKeywords: gen.missingKeywords.map((k) => ({
+                ...k,
+                include: Array.isArray(includedKeywords)
+                  ? includedKeywords.includes(k.keyword)
+                  : k.include,
+              })),
+            },
+        }),
+      } as Response;
     }
 
     // Every by-job route ends in the job id, so one parse serves all three.

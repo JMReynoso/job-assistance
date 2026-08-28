@@ -8,6 +8,7 @@ import { CompanyResearchModule } from './entities/companyResearch/company-resear
 import { GeneratedContentModule } from './entities/generatedContent/generated-content.module';
 import { ContactsModule } from './entities/contacts/contacts.module';
 import { JobsModule } from './entities/jobs/jobs.module';
+import { JobDetailModule } from './entities/jobDetail/job-detail.module';
 
 @Module({
     imports: [
@@ -26,6 +27,9 @@ import { JobsModule } from './entities/jobs/jobs.module';
         // importing it: the frontend reads /jobs directly, so mounting the
         // controller shouldn't be a side effect of an unrelated module.
         JobsModule,
+        // Composes the four modules above into the single PATCH /jobs/:id/detail
+        // the job detail window's Save button calls.
+        JobDetailModule,
     ],
     controllers: [AppController],
 })

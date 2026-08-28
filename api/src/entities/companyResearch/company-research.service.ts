@@ -37,6 +37,21 @@ export class CompanyResearchService {
         return this.companyResearchRepository.findByJobId(jobId);
     }
 
+    /**
+     * The job detail window's Notes box, written to this row's summary.
+     * Named for its one caller, like GeneratedContentService's
+     * updateFromJobDetail — nothing else may edit a research snapshot.
+     */
+    updateSummaryFromJobDetail(
+        id: number,
+        summary: string,
+    ): Promise<CompanyResearch> {
+        return this.companyResearchRepository.updateSummaryFromJobDetail(
+            id,
+            summary,
+        );
+    }
+
     async create(
         createCompanyResearchDto: CreateCompanyResearchDto,
     ): Promise<CompanyResearch> {

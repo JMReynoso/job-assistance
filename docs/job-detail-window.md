@@ -5,7 +5,7 @@ The window that opens when you click **open** on a tracker row. This page covers
 - For the tables and endpoints themselves, see [data-model.md](data-model.md).
 - For how the API layers fit together, see [controllers-services-repositories.md](controllers-services-repositories.md).
 
-**The window is read-only against the backend, with one exception.** Every field in the form loads real data and Save commits to local React state only — nothing is persisted. **Regenerate Tailored Resume is different: it's the app's first wired write**, a real `POST /generated-content/regenerate` that updates the row in Postgres. See [What isn't wired](#what-isnt-wired) at the end.
+**Every editable field in the form is wired to the backend.** Clicking Save fires one `PATCH /jobs/:id/detail` that fans the draft out across `jobs`, `company_research` and `missing_keywords`. The one field that stays local-only is the job description textarea — see [What isn't wired](#what-isnt-wired) at the end. Regenerate Tailored Resume is a separate write, a real `POST /generated-content/regenerate` that updates the row in Postgres.
 
 ---
 
@@ -127,7 +127,7 @@ Number.isInteger(parsed) && parsed > 0 ? parsed : null
 | Missing keyword chips | `missing_keywords` (via `generated_content.missingKeywords`) | `keyword` + `include`, one chip per row |
 | Regenerate Tailored Resume (enabled?) | (derived) | enabled once at least one keyword chip is checked |
 
-The job description textarea is the odd one out: unlike every other field on this list, editing it and clicking Save does **not** persist — same as everything else in the form (see [What isn't wired](#what-isnt-wired)). What *does* reach the backend is whatever `jobs.jobDescription` already held when the row was created or last `PATCH`ed directly; regenerating reads that stored value, not whatever is currently typed in the open window.
+The job description textarea is the odd one out: unlike every other field on this list, editing it and clicking Save does **not** persist (see [What isn't wired](#what-isnt-wired)). What *does* reach the backend is whatever `jobs.jobDescription` already held when the row was created or last `PATCH`ed directly; regenerating reads that stored value, not whatever is currently typed in the open window.
 
 Three naming traps live in that table. The `jobs` entity spells it **`jobPostingURL`** (capital URL) while the UI uses `jobPostingUrl`; **`companyPage`** becomes `companyUrl`; and **Notes is research**, not a notes column — there is no free-text notes field anywhere in the schema.
 
@@ -192,6 +192,32 @@ A counter rather than `AbortController`: it's one line, it covers every superses
 
 ---
 
+## The write path
+
+Clicking Save calls `saveDraft()` in [useJobTracker.ts](../web/src/hooks/useJobTracker.ts), which sends one `PATCH /jobs/:id/detail` built by [`toJobDetailPatch`](../web/src/lib/api/mappers.ts) — the outbound mirror of `mergeJobDetail`. A locally-added job (no backend id) skips the request entirely and just writes the draft into state, the same as before this was wired.
+
+```
+saveDraft()
+│
+├─ toJobId(draft.id) === null ?  → write draft into jobs[] locally, done
+│
+└─ PATCH /jobs/:id/detail  { …patch }        saveStatus "saving"
+   │
+   ├─ 200 → mergeJobDetail(response) replaces the draft AND the list row
+   │        (server truth, not the draft the client sent)              saveStatus "idle"
+   │
+   └─ error → draft stays as-is, dirty stays true                      saveStatus "error"
+```
+
+On the backend, `JobDetailService.update()` (in the new `jobDetail` module — see [controllers-services-repositories.md](controllers-services-repositories.md)) orchestrates three services: `JobsService.update()` for the `jobs` columns, `CompanyResearchService.updateSummaryFromJobDetail()` for Notes, and `GeneratedContentService.updateFromJobDetail()` for the two messages and the keyword checkboxes. It returns the same four-piece shape `fetchJobDetail` does, so the client can feed the response straight back into `mergeJobDetail`.
+
+Two rules to know:
+
+- **Overwrite only — skip when the satellite row is absent.** A job with no `company_research` or `generated_content` row yet has its Notes/messages silently dropped from the patch rather than fabricating a row. Those tables stay purely API-generated.
+- **The five NOT NULL `jobs` columns are omitted from the patch when blank**, not sent as `""`. `companyName`, `dateApplied`, `dateLastContacted`, `jobPostingURL` and `companyPage` are validated with `@IsNotEmpty` / `@Matches` / `@IsUrl` specifically so a PATCH can never blank one out — sending `""` would 400 the entire save instead of just that field, so the client leaves them out and the old value survives.
+
+---
+
 ## When it breaks
 
 | Symptom | Cause |
@@ -210,9 +236,9 @@ A counter rather than `AbortController`: it's one line, it covers every superses
 
 ## What isn't wired
 
-**Every write path except one.** The add form creates a local row and never `POST`s it; Save commits the draft to React state and never `PATCH`es; edited contacts go nowhere. Reload the page and every edit is gone — including anything typed into the job description textarea.
+**The add form, contacts, delete, and the job description textarea.** The add form creates a local row and never `POST`s it; editing a contact has no affordance at all (the table is read-only, see below); Delete removes the row from React state only; and the job description textarea's edits never leave the browser even though everything else in the form now saves. Reload the page after any of these and the change is gone.
 
-**Regenerate Tailored Resume is the exception.** Clicking it, with at least one keyword checked, fires a real `POST /generated-content/regenerate` — [useRegenerateResume.ts](../web/src/hooks/useRegenerateResume.ts) owns the call, [RegenerateProgressModal.tsx](../web/src/components/job-assistance/RegenerateProgressModal.tsx) shows a four-stage progress popup for it, and the response's `tailoredResume`/`jdMatchPercent` get folded back into the open row on success. Two things worth knowing about it:
+**Regenerate Tailored Resume is a second, separate write path.** Clicking it, with at least one keyword checked, fires a real `POST /generated-content/regenerate` — [useRegenerateResume.ts](../web/src/hooks/useRegenerateResume.ts) owns the call, [RegenerateProgressModal.tsx](../web/src/components/job-assistance/RegenerateProgressModal.tsx) shows a four-stage progress popup for it, and the response's `tailoredResume`/`jdMatchPercent` get folded back into the open row on success. Two things worth knowing about it:
 - **The progress stages are cosmetic**, the same way the job-setup pipeline's are — the backend is one POST with no event stream, so the stepper paces a plausible timeline rather than reporting real server progress. It holds at the last stage until the response actually lands.
 - **Cancelling only aborts the browser's request.** The confirm-before-cancel dialog says so: the Claude calls already in flight on the server finish regardless, and the row is still updated when they do. There is no server-side cancellation.
 

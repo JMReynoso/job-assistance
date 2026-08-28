@@ -6,6 +6,7 @@ import {
   buildApiContact,
   buildApiGeneratedContent,
   buildApiJob,
+  buildApiMissingKeyword,
   mockApi,
 } from "../mock/api.mock";
 
@@ -316,18 +317,154 @@ describe("useJobTracker", () => {
       await openAndSettle(result, "1");
       act(() => result.current.setDraftField("notes", "Updated notes"));
 
-      act(() => result.current.saveDraft());
+      await act(async () => {
+        await result.current.saveDraft();
+      });
 
       expect(result.current.jobs.find((job) => job.id === "1")?.notes).toBe("Updated notes");
       expect(result.current.dirty).toBe(false);
+      expect(result.current.saveStatus).toBe("idle");
     });
 
     it("does nothing when saving with no draft open", async () => {
       const { result } = await renderLoaded();
       const jobsBefore = result.current.jobs;
 
-      act(() => result.current.saveDraft());
+      await act(async () => {
+        await result.current.saveDraft();
+      });
 
+      expect(result.current.jobs).toBe(jobsBefore);
+    });
+
+    it("saves the draft with one PATCH carrying the fields in API spelling", async () => {
+      const { result, fetchMock } = await renderLoaded();
+      await openAndSettle(result, "1");
+      act(() => {
+        result.current.setDraftField("jobPostingUrl", "https://example.com/job");
+        result.current.setDraftField("companyUrl", "https://example.com");
+        result.current.setDraftField("status", "Interviewing");
+      });
+      fetchMock.mockClear();
+
+      await act(async () => {
+        await result.current.saveDraft();
+      });
+
+      const patchCalls = fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/jobs/1/detail"));
+      expect(patchCalls).toHaveLength(1);
+      const [, init] = patchCalls[0] as [unknown, RequestInit];
+      expect(init.method).toBe("PATCH");
+      const body = JSON.parse(String(init.body));
+      expect(body).toMatchObject({
+        jobPostingURL: "https://example.com/job",
+        companyPage: "https://example.com",
+        status: "interviewing",
+      });
+    });
+
+    it("omits companyName, both dates and both URLs from the payload when blank", async () => {
+      const { result, fetchMock } = await renderLoaded();
+      await openAndSettle(result, "1");
+      act(() => {
+        result.current.setDraftField("companyName", "   ");
+        result.current.setDraftField("dateApplied", "");
+        result.current.setDraftField("dateLastContacted", "");
+        result.current.setDraftField("jobPostingUrl", "  ");
+        result.current.setDraftField("companyUrl", "");
+      });
+      fetchMock.mockClear();
+
+      await act(async () => {
+        await result.current.saveDraft();
+      });
+
+      const [, init] = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/jobs/1/detail")) as [
+        unknown,
+        RequestInit,
+      ];
+      const body = JSON.parse(String(init.body));
+      expect(body).not.toHaveProperty("companyName");
+      expect(body).not.toHaveProperty("dateApplied");
+      expect(body).not.toHaveProperty("dateLastContacted");
+      expect(body).not.toHaveProperty("jobPostingURL");
+      expect(body).not.toHaveProperty("companyPage");
+    });
+
+    it("sends exactly the checked keywords as includedKeywords", async () => {
+      const { result, fetchMock } = await renderLoaded({
+        content: buildApiGeneratedContent({
+          missingKeywords: [
+            buildApiMissingKeyword({ id: 41, keyword: "Kubernetes", include: false }),
+            buildApiMissingKeyword({ id: 42, keyword: "Terraform", include: false }),
+          ],
+        }),
+      });
+      await openAndSettle(result, "1");
+      act(() => result.current.toggleKeyword("Terraform"));
+      fetchMock.mockClear();
+
+      await act(async () => {
+        await result.current.saveDraft();
+      });
+
+      const [, init] = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/jobs/1/detail")) as [
+        unknown,
+        RequestInit,
+      ];
+      const body = JSON.parse(String(init.body));
+      expect(body.includedKeywords).toEqual(["Terraform"]);
+    });
+
+    it("toggling a keyword marks the draft dirty", async () => {
+      const { result } = await renderLoaded({
+        content: buildApiGeneratedContent({
+          missingKeywords: [buildApiMissingKeyword({ keyword: "Kubernetes" })],
+        }),
+      });
+      await openAndSettle(result, "1");
+      expect(result.current.dirty).toBe(false);
+
+      act(() => result.current.toggleKeyword("Kubernetes"));
+
+      expect(result.current.dirty).toBe(true);
+    });
+
+    it("saves a locally-added job to state without issuing a fetch", async () => {
+      const { result, fetchMock } = await renderLoaded();
+      act(() => {
+        result.current.addToTracker();
+      });
+      const localId = result.current.jobs[0].id;
+      await openAndSettle(result, localId);
+      act(() => result.current.setDraftField("notes", "Local notes"));
+      fetchMock.mockClear();
+
+      let saved: boolean | undefined;
+      await act(async () => {
+        saved = await result.current.saveDraft();
+      });
+
+      expect(saved).toBe(true);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(result.current.jobs.find((job) => job.id === localId)?.notes).toBe("Local notes");
+      expect(result.current.dirty).toBe(false);
+    });
+
+    it("sets saveStatus to error and keeps the draft dirty when the save fails, leaving the job list untouched", async () => {
+      const { result } = await renderLoaded({ failOn: "/detail" });
+      await openAndSettle(result, "1");
+      act(() => result.current.setDraftField("notes", "Updated notes"));
+      const jobsBefore = result.current.jobs;
+
+      let saved: boolean | undefined;
+      await act(async () => {
+        saved = await result.current.saveDraft();
+      });
+
+      expect(saved).toBe(false);
+      expect(result.current.saveStatus).toBe("error");
+      expect(result.current.dirty).toBe(true);
       expect(result.current.jobs).toBe(jobsBefore);
     });
   });
@@ -385,10 +522,26 @@ describe("useJobTracker", () => {
       await openAndSettle(result, "1");
       act(() => result.current.setDraftField("notes", "Updated notes"));
 
-      act(() => result.current.saveAndClose());
+      await act(async () => {
+        await result.current.saveAndClose();
+      });
 
       expect(result.current.openId).toBeNull();
       expect(result.current.jobs.find((job) => job.id === "1")?.notes).toBe("Updated notes");
+    });
+
+    it("'save & close' leaves the window open and clears the close-confirmation when the save fails", async () => {
+      const { result } = await renderLoaded({ failOn: "/detail" });
+      await openAndSettle(result, "1");
+      act(() => result.current.setDraftField("notes", "Updated notes"));
+
+      await act(async () => {
+        await result.current.saveAndClose();
+      });
+
+      expect(result.current.openId).toBe("1");
+      expect(result.current.showCloseConfirm).toBe(false);
+      expect(result.current.saveStatus).toBe("error");
     });
   });
 

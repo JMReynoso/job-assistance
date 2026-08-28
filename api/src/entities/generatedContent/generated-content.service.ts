@@ -252,6 +252,56 @@ export class GeneratedContentService {
         });
     }
 
+    /**
+     * Applies the job detail window's edits to the newest generation run for
+     * a job: the two drafted messages and which missing keywords are checked.
+     *
+     * Returns null when the job has never been generated for. Nothing to
+     * overwrite is not an error — it's the normal state of a job you just
+     * added, the same reasoning the by-job read follows.
+     */
+    async updateFromJobDetail(
+        jobId: number,
+        patch: {
+            outreachMessage?: string;
+            followupMessage?: string;
+            includedKeywords?: string[];
+        },
+    ): Promise<
+        (GeneratedContent & { missingKeywords: MissingKeyword[] }) | null
+    > {
+        const content =
+            await this.generatedContentRepository.findByJobId(jobId);
+        if (!content) {
+            return null;
+        }
+
+        const fields: Partial<GeneratedContent> = {};
+        if (patch.outreachMessage !== undefined) {
+            fields.outreachMessage = patch.outreachMessage;
+        }
+        if (patch.followupMessage !== undefined) {
+            fields.followupMessage = patch.followupMessage;
+        }
+        if (Object.keys(fields).length > 0) {
+            await this.generatedContentRepository.updateFields(
+                content.id,
+                fields,
+            );
+        }
+
+        // setIncluded clears every other keyword on the row, so an empty
+        // array correctly means "the user unchecked everything".
+        if (patch.includedKeywords !== undefined) {
+            await this.missingKeywordRepository.setIncluded(
+                content.id,
+                patch.includedKeywords,
+            );
+        }
+
+        return this.findByJobIdWithKeywords(jobId);
+    }
+
     async update(
         id: number,
         dto: UpdateGeneratedContentDto,

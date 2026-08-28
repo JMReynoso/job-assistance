@@ -68,4 +68,19 @@ export class CompanyResearchRepository extends BaseRepository {
 
         return (result.affected ?? 0) > 0;
     }
+
+    /**
+     * Overwrites just the summary of one row — the job detail window's
+     * "Notes" box. Deliberately not a general update(): everything else here
+     * is a snapshot of one Perplexity run, re-created by re-running it.
+     */
+    async updateSummaryFromJobDetail(
+        id: number,
+        summary: string,
+    ): Promise<CompanyResearch> {
+        return this.run(`updating company research ${id} summary`, async () => {
+            await this.repository.update(id, { summary });
+            return this.repository.findOneOrFail({ where: { id } });
+        });
+    }
 }

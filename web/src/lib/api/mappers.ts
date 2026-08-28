@@ -1,6 +1,6 @@
 import type { Job, JobContact, JobStatus } from "@/lib/job-assistance/types";
 import type { JobDetail } from "./jobs";
-import type { ApiContact, ApiJob, ApiStatus } from "./types";
+import type { ApiContact, ApiJob, ApiJobDetailPatch, ApiStatus } from "./types";
 
 /**
  * Translates between the API's shapes and the UI's. The two schemas diverge on
@@ -103,4 +103,36 @@ export function mergeJobDetail(detail: JobDetail): Job {
       include: k.include,
     })),
   };
+}
+
+/**
+ * The Save payload for one job: the draft's editable fields in the API's
+ * spelling. The mirror of mergeJobDetail, and the only other place that knows
+ * jobPostingUrl is jobPostingURL, companyUrl is companyPage, notes is a
+ * research summary and recruiterMessage is an outreach message.
+ *
+ * Every field is sent rather than only the changed ones: editing is blocked
+ * until the whole job has loaded, so the draft is always a complete picture
+ * and no per-field dirty tracking is needed.
+ *
+ * The five NOT NULL columns are omitted when blank. The API validates them
+ * with @IsNotEmpty / @Matches / @IsUrl precisely so a PATCH can't blank one
+ * out, so sending "" would 400 the entire save instead of just that field.
+ */
+export function toJobDetailPatch(draft: Job, includedKeywords: string[]): ApiJobDetailPatch {
+  const patch: ApiJobDetailPatch = {
+    status: STATUS_TO_API[draft.status],
+    notes: draft.notes,
+    outreachMessage: draft.recruiterMessage,
+    followupMessage: draft.followupMessage,
+    includedKeywords,
+  };
+
+  if (draft.companyName.trim()) patch.companyName = draft.companyName;
+  if (draft.dateApplied) patch.dateApplied = draft.dateApplied;
+  if (draft.dateLastContacted) patch.dateLastContacted = draft.dateLastContacted;
+  if (draft.jobPostingUrl.trim()) patch.jobPostingURL = draft.jobPostingUrl;
+  if (draft.companyUrl.trim()) patch.companyPage = draft.companyUrl;
+
+  return patch;
 }

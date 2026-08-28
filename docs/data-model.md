@@ -94,11 +94,14 @@ The root record. Created by hand (or by the frontend); everything else reference
 | `GET` | `/jobs/:id` | — | `200` · `404` |
 | `POST` | `/jobs` | `CreateJobDto` | `201` — the created job |
 | `PATCH` | `/jobs/:id` | `UpdateJobDto` (all fields optional) | `200` · `404` |
+| `PATCH` | `/jobs/:id/detail` | `UpdateJobDetailDto` (all fields optional) | `200` · `404` — the job detail window's Save; see below |
 | `DELETE` | `/jobs/:id` | — | `204` · `404` |
 
 **`CreateJobDto`** — `companyName` (≤255 chars), `jobPostingURL`, `companyPage`, `companyLinkedIn` are required; `extraURLs`, `status`, `dateApplied`, and `dateLastContacted` optional. All four URL fields are validated with `@IsUrl()`.
 
 The two dates are matched against `/^\d{4}-\d{2}-\d{2}$/` rather than `@IsDateString()` — which would also accept a full ISO datetime, and a `date` column has nowhere to put the time. `@Matches` also **rejects `''`** where `@IsOptional()` alone would not, so neither `POST` nor (via `PartialType`) `PATCH` can blank one back out.
+
+**`PATCH /jobs/:id/detail`** is a separate, wider endpoint — not on `JobsController`, but on a `JobDetailController` in its own `JobDetail` module (see [How the modules wire up](#how-the-modules-wire-up)). It's the single call behind the job detail window's Save button: one `UpdateJobDetailDto` carries the six `jobs` columns above *plus* `notes` (→ `company_research.summary`), `outreachMessage`/`followupMessage` (→ `generated_content`), and `includedKeywords` (→ `missing_keywords.include`). `JobDetailService.update()` orchestrates all three entities' services and returns the same `{ job, contacts, research, content }` shape `fetchJobDetail` assembles client-side, so the frontend can treat the response as a fresh read. Satellite rows that don't exist yet (no research, no generated content) are silently skipped rather than created — see [job-detail-window.md](job-detail-window.md#the-write-path) for the full contract, including why the five `jobs` fields above are omitted from the patch rather than sent blank.
 
 ### How rows get written
 
@@ -302,6 +305,7 @@ A dummy entity kept as a copy-me reference for the folder shape (entity / dto / 
 | `POST` | `/jobs` | `201` | |
 | `GET` | `/jobs/:id` | `200` | |
 | `PATCH` | `/jobs/:id` | `200` | |
+| `PATCH` | `/jobs/:id/detail` | `200` | Orchestrates `jobs` + `company_research` + `missing_keywords` in one call |
 | `DELETE` | `/jobs/:id` | `204` | |
 | `GET` | `/company-research` | `200` | |
 | `POST` | `/company-research` | `201` | Calls Perplexity ×2 |
@@ -341,7 +345,7 @@ The web app is served from `:4000` and the API from `:4001`, so [main.ts](../api
 
 ### How the modules wire up
 
-Four feature modules are registered in `AppModule`. `JobsModule` is one of them **explicitly** — it used to be reachable only as a side effect of `GeneratedContentModule` importing it for `JobsService` (the company-name fallback), which is too fragile now that the frontend reads `/jobs` directly:
+Five feature modules are registered in `AppModule`. `JobsModule` is one of them **explicitly** — it used to be reachable only as a side effect of `GeneratedContentModule` importing it for `JobsService` (the company-name fallback), which is too fragile now that the frontend reads `/jobs` directly:
 
 ```
 AppModule
@@ -355,8 +359,15 @@ AppModule
 │   └── JobsModule (reused)
 ├── ContactsModule                → /contacts
 │   └── HunterModule
-└── JobsModule                    → /jobs
+├── JobsModule                    → /jobs
+└── JobDetailModule               → /jobs/:id/detail
+    ├── JobsModule (reused)
+    ├── CompanyResearchModule (reused)
+    ├── GeneratedContentModule (reused)
+    └── ContactsModule (reused)
 ```
+
+`JobDetailModule` owns no entity and no `TypeOrmModule.forFeature` — it only composes the four modules above so `JobDetailService` can orchestrate a save across `jobs`, `company_research`, `generated_content`, and read `contacts`, without a circular import: `GeneratedContentModule` already imports `JobsModule`, so `JobsModule` importing back into a `GeneratedContentModule`-touching orchestrator would need `forwardRef()` on both sides. Sitting `JobDetailModule` above all four avoids that entirely.
 
 The three external-API modules are deliberately **not** app-wide: each needs its API key the moment it loads, so the app can boot without keys until a feature actually uses one.
 
