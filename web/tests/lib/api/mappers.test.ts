@@ -3,6 +3,7 @@ import {
   mapContact,
   mapJob,
   mergeJobDetail,
+  toJobDetailPatch,
   toJobId,
   toJobStatus,
 } from "@/lib/api/mappers";
@@ -226,5 +227,66 @@ describe("mergeJobDetail", () => {
 
     expect(job.jdMatchPercent).toBeNull();
     expect(job.missingKeywords).toEqual([]);
+  });
+});
+
+describe("toJobDetailPatch", () => {
+  it("sends every field for a fully-populated draft, in the API's spelling", () => {
+    const draft = buildJob({
+      companyName: "Willow & Oak",
+      status: "Applied",
+      dateApplied: "2026-07-03",
+      dateLastContacted: "2026-07-09",
+      jobPostingUrl: "https://boards.greenhouse.io/willowoak/jobs/1",
+      companyUrl: "https://willowoak.co",
+      notes: "Founded 2011.",
+      recruiterMessage: "Hi Dana",
+      followupMessage: "Checking in",
+    });
+
+    expect(toJobDetailPatch(draft, ["Kubernetes"])).toEqual({
+      companyName: "Willow & Oak",
+      status: "applied",
+      dateApplied: "2026-07-03",
+      dateLastContacted: "2026-07-09",
+      jobPostingURL: "https://boards.greenhouse.io/willowoak/jobs/1",
+      companyPage: "https://willowoak.co",
+      notes: "Founded 2011.",
+      outreachMessage: "Hi Dana",
+      followupMessage: "Checking in",
+      includedKeywords: ["Kubernetes"],
+    });
+  });
+
+  it("omits companyName, both dates and both URLs when blank, but still sends the rest", () => {
+    const draft = buildJob({
+      companyName: "   ",
+      dateApplied: "",
+      dateLastContacted: "",
+      jobPostingUrl: "  ",
+      companyUrl: "",
+      notes: "",
+      recruiterMessage: "",
+      followupMessage: "",
+    });
+
+    const patch = toJobDetailPatch(draft, []);
+
+    expect(patch).not.toHaveProperty("companyName");
+    expect(patch).not.toHaveProperty("dateApplied");
+    expect(patch).not.toHaveProperty("dateLastContacted");
+    expect(patch).not.toHaveProperty("jobPostingURL");
+    expect(patch).not.toHaveProperty("companyPage");
+    expect(patch).toMatchObject({ notes: "", outreachMessage: "", followupMessage: "" });
+  });
+
+  it("passes includedKeywords through as-is, including an empty array", () => {
+    const draft = buildJob();
+
+    expect(toJobDetailPatch(draft, []).includedKeywords).toEqual([]);
+    expect(toJobDetailPatch(draft, ["Kubernetes", "Terraform"]).includedKeywords).toEqual([
+      "Kubernetes",
+      "Terraform",
+    ]);
   });
 });

@@ -1,4 +1,4 @@
-import { ApiError, apiGet, apiPost } from "@/lib/api/client";
+import { ApiError, apiGet, apiPatch, apiPost } from "@/lib/api/client";
 
 describe("apiGet", () => {
   afterEach(() => {
@@ -106,5 +106,51 @@ describe("apiPost", () => {
     }) as unknown as typeof fetch;
 
     await expect(apiPost("/generated-content/regenerate", {})).rejects.toBe(abortError);
+  });
+});
+
+describe("apiPatch", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("sends the body as JSON via PATCH and returns the parsed response", async () => {
+    const fetchMock = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ job: { id: 1 } }),
+    }));
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(apiPatch("/jobs/1/detail", { notes: "Updated" })).resolves.toEqual({ job: { id: 1 } });
+
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toContain("/jobs/1/detail");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(String(init.body))).toEqual({ notes: "Updated" });
+  });
+
+  it("throws an ApiError carrying the status and path for a non-ok response", async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: false,
+      status: 400,
+      json: async () => ({}),
+    })) as unknown as typeof fetch;
+
+    await expect(apiPatch("/jobs/1/detail", {})).rejects.toMatchObject({
+      name: "ApiError",
+      status: 400,
+      path: "/jobs/1/detail",
+    });
+  });
+
+  it("reports status 0 when the request never reached the server", async () => {
+    global.fetch = jest.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    }) as unknown as typeof fetch;
+
+    const error = await apiPatch("/jobs/1/detail", {}).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(0);
   });
 });

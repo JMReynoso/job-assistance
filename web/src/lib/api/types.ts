@@ -81,3 +81,23 @@ export interface ApiGeneratedContent {
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * The job detail window's Save payload — one PATCH across three tables.
+ * Mirrors the API's UpdateJobDetailDto: every field optional, and an omitted
+ * field means "leave this alone" rather than "clear it".
+ */
+export interface ApiJobDetailPatch {
+  companyName?: string;
+  status?: ApiStatus;
+  dateApplied?: string;
+  dateLastContacted?: string;
+  jobPostingURL?: string;
+  companyPage?: string;
+  /** company_research.summary. */
+  notes?: string;
+  outreachMessage?: string;
+  followupMessage?: string;
+  /** The complete set of checked chips; [] unchecks everything. */
+  includedKeywords?: string[];
+}

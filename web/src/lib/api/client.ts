@@ -45,17 +45,20 @@ export async function apiGet<T>(path: string): Promise<T> {
 }
 
 /**
- * POSTs JSON to the API. Accepts an optional AbortSignal so long-running
- * calls (resume regeneration) can be cancelled from the UI — an aborted
- * fetch rejects with a DOMException named "AbortError", which is rethrown
- * as-is so callers can tell "user cancelled" from "server down".
+ * Shared implementation for the JSON-body verbs. The AbortSignal is what lets
+ * the regenerate progress modal cancel an in-flight call.
  */
-export async function apiPost<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+async function sendJson<T>(
+  method: "POST" | "PATCH",
+  path: string,
+  body: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
   let response: Response;
 
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
-      method: "POST",
+      method,
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(body),
       cache: "no-store",
@@ -67,8 +70,23 @@ export async function apiPost<T>(path: string, body: unknown, signal?: AbortSign
   }
 
   if (!response.ok) {
-    throw new ApiError(response.status, path, `POST ${path} failed (${response.status})`);
+    throw new ApiError(response.status, path, `${method} ${path} failed (${response.status})`);
   }
 
   return (await response.json()) as T;
+}
+
+/**
+ * POSTs JSON to the API. Accepts an optional AbortSignal so long-running
+ * calls (resume regeneration) can be cancelled from the UI — an aborted
+ * fetch rejects with a DOMException named "AbortError", which is rethrown
+ * as-is so callers can tell "user cancelled" from "server down".
+ */
+export function apiPost<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  return sendJson<T>("POST", path, body, signal);
+}
+
+/** PATCHes JSON to the API. Same error contract as apiPost. */
+export function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  return sendJson<T>("PATCH", path, body);
 }
