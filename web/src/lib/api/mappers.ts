@@ -1,6 +1,15 @@
-import type { Job, JobContact, JobStatus } from "@/lib/job-assistance/types";
+import type { HomeFormState, Job, JobContact, JobStatus } from "@/lib/job-assistance/types";
 import type { JobDetail } from "./jobs";
-import type { ApiContact, ApiJob, ApiJobDetailPatch, ApiStatus } from "./types";
+import type {
+  ApiContact,
+  ApiCreateCompanyResearch,
+  ApiCreateGeneratedContent,
+  ApiCreateJob,
+  ApiFindContacts,
+  ApiJob,
+  ApiJobDetailPatch,
+  ApiStatus,
+} from "./types";
 
 /**
  * Translates between the API's shapes and the UI's. The two schemas diverge on
@@ -131,8 +140,83 @@ export function toJobDetailPatch(draft: Job, includedKeywords: string[]): ApiJob
   if (draft.companyName.trim()) patch.companyName = draft.companyName;
   if (draft.dateApplied) patch.dateApplied = draft.dateApplied;
   if (draft.dateLastContacted) patch.dateLastContacted = draft.dateLastContacted;
-  if (draft.jobPostingUrl.trim()) patch.jobPostingURL = draft.jobPostingUrl;
-  if (draft.companyUrl.trim()) patch.companyPage = draft.companyUrl;
+  if (draft.jobPostingUrl.trim()) patch.jobPostingUrl = draft.jobPostingUrl;
+  if (draft.companyUrl.trim()) patch.companyPageUrl = draft.companyUrl;
 
   return patch;
+}
+
+/**
+ * The quick-add form → the four request bodies of the setup pipeline.
+ *
+ * Named functions rather than object literals inside the hook: the form's own
+ * field names (`jobPosting`, `companyPage`, `companyLinkedIn`, `extraLinks`)
+ * are the UI's, not the API's, and this file is the one place that knows both.
+ */
+
+/**
+ * The "Extra links" textarea is one URL per line; company_research takes an
+ * array. Exactly the split CreateCompanyResearchDto's own comment prescribes.
+ */
+export function splitExtraLinks(raw: string): string[] {
+  return raw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+export function toCreateJob(home: HomeFormState): ApiCreateJob {
+  const body: ApiCreateJob = {
+    companyName: home.companyName.trim(),
+    jobPostingUrl: home.jobPosting.trim(),
+    companyPageUrl: home.companyPage.trim(),
+    companyLinkedInUrl: home.companyLinkedIn.trim(),
+    jobDescription: home.jobDescription,
+  };
+
+  // `jobs.extraUrls` is a single `@IsUrl()` column, not a list, so it can only
+  // carry the textarea when the user typed exactly one link — several lines
+  // would fail validation and 400 the whole create. The full list still
+  // reaches the research call below, which is what those links are for.
+  const links = splitExtraLinks(home.extraLinks);
+  if (links.length === 1) body.extraUrls = links[0];
+
+  return body;
+}
+
+// `status`, `dateApplied` and `dateLastContacted` are deliberately not sent:
+// the columns default to `not_applied` and CURRENT_DATE, which is exactly what
+// a job you just added should have.
+
+export function toCreateCompanyResearch(jobId: number, home: HomeFormState): ApiCreateCompanyResearch {
+  const body: ApiCreateCompanyResearch = {
+    jobId,
+    companyName: home.companyName.trim(),
+    jobPostingUrl: home.jobPosting.trim(),
+    companyPageUrl: home.companyPage.trim(),
+    companyLinkedInUrl: home.companyLinkedIn.trim(),
+  };
+
+  // Same name as ApiCreateJob's field, a different type — here it's the list.
+  const links = splitExtraLinks(home.extraLinks);
+  if (links.length > 0) body.extraUrls = links;
+
+  return body;
+}
+
+export function toCreateGeneratedContent(jobId: number, home: HomeFormState): ApiCreateGeneratedContent {
+  return {
+    jobId,
+    // The posting *text*. The API prefers the stored jobs.jobDescription and
+    // falls back to this, so the two are the same string by construction.
+    jobPosting: home.jobDescription,
+    companyWebsite: home.companyPage.trim(),
+    companyName: home.companyName.trim(),
+  };
+}
+
+export function toFindContacts(jobId: number, home: HomeFormState): ApiFindContacts {
+  // `limit` is left off: the API's default of 10 is the right call when each
+  // one costs a Hunter credit.
+  return { jobId, companyPageUrl: home.companyPage.trim() };
 }

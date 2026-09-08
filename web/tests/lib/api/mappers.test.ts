@@ -3,6 +3,11 @@ import {
   mapContact,
   mapJob,
   mergeJobDetail,
+  splitExtraLinks,
+  toCreateCompanyResearch,
+  toCreateGeneratedContent,
+  toCreateJob,
+  toFindContacts,
   toJobDetailPatch,
   toJobId,
   toJobStatus,
@@ -17,6 +22,7 @@ import {
   buildApiMissingKeyword,
 } from "../../mock/api.mock";
 import { buildJob } from "../../mock/jobs.mock";
+import { buildHomeForm } from "../../mock/home-form.mock";
 
 const ALL_API_STATUSES: ApiStatus[] = [
   "not_applied",
@@ -288,5 +294,115 @@ describe("toJobDetailPatch", () => {
       "Kubernetes",
       "Terraform",
     ]);
+  });
+});
+
+describe("splitExtraLinks", () => {
+  it("trims each line and drops blank ones", () => {
+    expect(splitExtraLinks(" https://a.com \n\n https://b.com\n  \n")).toEqual([
+      "https://a.com",
+      "https://b.com",
+    ]);
+  });
+
+  it("returns an empty array for a blank textarea", () => {
+    expect(splitExtraLinks("   \n  ")).toEqual([]);
+  });
+});
+
+describe("toCreateJob", () => {
+  const home = buildHomeForm({
+    companyName: "  Acme Robotics  ",
+    jobPosting: " https://acme.example/careers/1 ",
+    companyPage: " https://acme.example ",
+    companyLinkedIn: " https://linkedin.com/company/acme ",
+    jobDescription: "We are looking for...",
+  });
+
+  it("trims fields and uses the API's field names", () => {
+    const body = toCreateJob(buildHomeForm({ ...home, extraLinks: "" }));
+
+    expect(body).toEqual({
+      companyName: "Acme Robotics",
+      jobPostingUrl: "https://acme.example/careers/1",
+      companyPageUrl: "https://acme.example",
+      companyLinkedInUrl: "https://linkedin.com/company/acme",
+      jobDescription: "We are looking for...",
+    });
+  });
+
+  it("sends extraUrls as a single string only when the textarea has exactly one line", () => {
+    expect(toCreateJob(buildHomeForm({ ...home, extraLinks: "https://glassdoor.com/acme" })).extraUrls).toBe(
+      "https://glassdoor.com/acme",
+    );
+  });
+
+  it("omits extraUrls when the textarea is empty or has more than one line", () => {
+    expect(toCreateJob(buildHomeForm({ ...home, extraLinks: "" })).extraUrls).toBeUndefined();
+    expect(
+      toCreateJob(buildHomeForm({ ...home, extraLinks: "https://a.com\nhttps://b.com" })).extraUrls,
+    ).toBeUndefined();
+  });
+});
+
+describe("toCreateCompanyResearch", () => {
+  const home = buildHomeForm({
+    companyName: "  Acme Robotics  ",
+    jobPosting: " https://acme.example/careers/1 ",
+    companyPage: " https://acme.example ",
+    companyLinkedIn: " https://linkedin.com/company/acme ",
+  });
+
+  it("trims fields and uses the API's field names, carrying the jobId", () => {
+    const body = toCreateCompanyResearch(7, buildHomeForm({ ...home, extraLinks: "" }));
+
+    expect(body).toEqual({
+      jobId: 7,
+      companyName: "Acme Robotics",
+      jobPostingUrl: "https://acme.example/careers/1",
+      companyPageUrl: "https://acme.example",
+      companyLinkedInUrl: "https://linkedin.com/company/acme",
+    });
+  });
+
+  it("sends extraUrls as an array of every line", () => {
+    const body = toCreateCompanyResearch(
+      7,
+      buildHomeForm({ ...home, extraLinks: "https://a.com\nhttps://b.com" }),
+    );
+
+    expect(body.extraUrls).toEqual(["https://a.com", "https://b.com"]);
+  });
+
+  it("omits extraUrls when the textarea is empty", () => {
+    expect(toCreateCompanyResearch(7, buildHomeForm({ ...home, extraLinks: "" })).extraUrls).toBeUndefined();
+  });
+});
+
+describe("toCreateGeneratedContent", () => {
+  it("sends the job description as jobPosting and the company page as companyWebsite", () => {
+    const home = buildHomeForm({
+      companyName: "Acme Robotics",
+      companyPage: " https://acme.example ",
+      jobDescription: "We are looking for...",
+    });
+
+    expect(toCreateGeneratedContent(7, home)).toEqual({
+      jobId: 7,
+      jobPosting: "We are looking for...",
+      companyWebsite: "https://acme.example",
+      companyName: "Acme Robotics",
+    });
+  });
+});
+
+describe("toFindContacts", () => {
+  it("sends jobId and companyPageUrl, with no limit", () => {
+    const home = buildHomeForm({ companyPage: " https://acme.example " });
+
+    expect(toFindContacts(7, home)).toEqual({
+      jobId: 7,
+      companyPageUrl: "https://acme.example",
+    });
   });
 });
