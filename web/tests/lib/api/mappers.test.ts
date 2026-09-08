@@ -94,10 +94,10 @@ describe("mapJob", () => {
   it("renames every field the two schemas disagree on", () => {
     const job = mapJob(
       buildApiJob({
-        companyPage: "https://willowoak.co",
-        jobPostingURL: "https://boards.greenhouse.io/willowoak/jobs/1",
-        companyLinkedIn: "https://www.linkedin.com/company/willowoak",
-        extraURLs: "https://crunchbase.com/willowoak",
+        companyPageUrl: "https://willowoak.co",
+        jobPostingUrl: "https://boards.greenhouse.io/willowoak/jobs/1",
+        companyLinkedInUrl: "https://www.linkedin.com/company/willowoak",
+        extraUrls: "https://crunchbase.com/willowoak",
       }),
     );
 
@@ -114,8 +114,8 @@ describe("mapJob", () => {
     expect(job.dateLastContacted).toBe("2026-07-09");
   });
 
-  it("coalesces a null extraURLs to an empty string", () => {
-    expect(mapJob(buildApiJob({ extraURLs: null })).extraLinks).toBe("");
+  it("coalesces a null extraUrls to an empty string", () => {
+    expect(mapJob(buildApiJob({ extraUrls: null })).extraLinks).toBe("");
   });
 
   it("leaves the by-job fields empty — they aren't part of GET /jobs", () => {
@@ -249,8 +249,8 @@ describe("toJobDetailPatch", () => {
       status: "applied",
       dateApplied: "2026-07-03",
       dateLastContacted: "2026-07-09",
-      jobPostingURL: "https://boards.greenhouse.io/willowoak/jobs/1",
-      companyPage: "https://willowoak.co",
+      jobPostingUrl: "https://boards.greenhouse.io/willowoak/jobs/1",
+      companyPageUrl: "https://willowoak.co",
       notes: "Founded 2011.",
       outreachMessage: "Hi Dana",
       followupMessage: "Checking in",
@@ -275,8 +275,8 @@ describe("toJobDetailPatch", () => {
     expect(patch).not.toHaveProperty("companyName");
     expect(patch).not.toHaveProperty("dateApplied");
     expect(patch).not.toHaveProperty("dateLastContacted");
-    expect(patch).not.toHaveProperty("jobPostingURL");
-    expect(patch).not.toHaveProperty("companyPage");
+    expect(patch).not.toHaveProperty("jobPostingUrl");
+    expect(patch).not.toHaveProperty("companyPageUrl");
     expect(patch).toMatchObject({ notes: "", outreachMessage: "", followupMessage: "" });
   });
 

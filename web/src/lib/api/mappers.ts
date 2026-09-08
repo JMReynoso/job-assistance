@@ -73,10 +73,10 @@ export function mapJob(api: ApiJob): Job {
     dateApplied: api.dateApplied,
     dateLastContacted: api.dateLastContacted,
     contacts: [],
-    companyUrl: api.companyPage,
-    jobPostingUrl: api.jobPostingURL,
-    companyLinkedInUrl: api.companyLinkedIn,
-    extraLinks: api.extraURLs ?? "",
+    companyUrl: api.companyPageUrl,
+    jobPostingUrl: api.jobPostingUrl,
+    companyLinkedInUrl: api.companyLinkedInUrl,
+    extraLinks: api.extraUrls ?? "",
     jobDescription: api.jobDescription ?? "",
     notes: "",
     recruiterMessage: "",
@@ -108,8 +108,8 @@ export function mergeJobDetail(detail: JobDetail): Job {
 /**
  * The Save payload for one job: the draft's editable fields in the API's
  * spelling. The mirror of mergeJobDetail, and the only other place that knows
- * jobPostingUrl is jobPostingURL, companyUrl is companyPage, notes is a
- * research summary and recruiterMessage is an outreach message.
+ * companyUrl is companyPageUrl, extraLinks is extraUrls, notes is a research
+ * summary and recruiterMessage is an outreach message.
  *
  * Every field is sent rather than only the changed ones: editing is blocked
  * until the whole job has loaded, so the draft is always a complete picture

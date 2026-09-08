@@ -22,11 +22,10 @@ export type ApiStatus =
 export interface ApiJob {
   id: number;
   companyName: string;
-  /** Capital URL — the entity's spelling, not a typo. */
-  jobPostingURL: string;
-  companyPage: string;
-  companyLinkedIn: string;
-  extraURLs: string | null;
+  jobPostingUrl: string;
+  companyPageUrl: string;
+  companyLinkedInUrl: string;
+  extraUrls: string | null;
   status: ApiStatus;
   /** 'YYYY-MM-DD'. NOT NULL on the column — every job has one from creation. */
   dateApplied: string;
@@ -92,8 +91,8 @@ export interface ApiJobDetailPatch {
   status?: ApiStatus;
   dateApplied?: string;
   dateLastContacted?: string;
-  jobPostingURL?: string;
-  companyPage?: string;
+  jobPostingUrl?: string;
+  companyPageUrl?: string;
   /** company_research.summary. */
   notes?: string;
   outreachMessage?: string;
