@@ -31,21 +31,21 @@ export class Job {
         description: 'URL of the original job posting',
     })
     @Column({ type: 'text' })
-    jobPostingURL: string;
+    jobPostingUrl: string;
 
     @ApiProperty({
         example: 'https://www.acme.com',
         description: "Company's main website",
     })
     @Column({ type: 'text' })
-    companyPage: string;
+    companyPageUrl: string;
 
     @ApiProperty({
         example: 'https://www.linkedin.com/company/acme-corp',
         description: "Company's LinkedIn page",
     })
     @Column({ type: 'text' })
-    companyLinkedIn: string;
+    companyLinkedInUrl: string;
 
     @ApiProperty({
         example: 'https://www.crunchbase.com/organization/acme-corp',
@@ -53,7 +53,7 @@ export class Job {
         nullable: true,
     })
     @Column({ type: 'text', nullable: true })
-    extraURLs?: string;
+    extraUrls?: string;
 
     @ApiProperty({
         example: 'We are looking for a Senior Backend Engineer with Node.js…',

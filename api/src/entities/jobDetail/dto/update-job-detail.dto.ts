@@ -51,12 +51,12 @@ export class UpdateJobDetailDto {
     })
     @IsUrl()
     @IsOptional()
-    jobPostingURL?: string;
+    jobPostingUrl?: string;
 
     @ApiPropertyOptional({ example: 'https://www.acme.com' })
     @IsUrl()
     @IsOptional()
-    companyPage?: string;
+    companyPageUrl?: string;
 
     // ---- company_research ----
 

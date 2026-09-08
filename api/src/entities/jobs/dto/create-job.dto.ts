@@ -26,7 +26,7 @@ export class CreateJobDto {
     })
     @IsUrl()
     @IsNotEmpty()
-    jobPostingURL: string;
+    jobPostingUrl: string;
 
     @ApiProperty({
         example: 'https://www.acme.com',
@@ -34,7 +34,7 @@ export class CreateJobDto {
     })
     @IsUrl()
     @IsNotEmpty()
-    companyPage: string;
+    companyPageUrl: string;
 
     @ApiProperty({
         example: 'https://www.linkedin.com/company/acme-corp',
@@ -42,7 +42,7 @@ export class CreateJobDto {
     })
     @IsUrl()
     @IsNotEmpty()
-    companyLinkedIn: string;
+    companyLinkedInUrl: string;
 
     @ApiPropertyOptional({
         example: 'https://www.crunchbase.com/organization/acme-corp',
@@ -50,7 +50,7 @@ export class CreateJobDto {
     })
     @IsUrl()
     @IsOptional()
-    extraURLs?: string;
+    extraUrls?: string;
 
     @ApiPropertyOptional({
         example: 'We are looking for a Senior Backend Engineer with Node.js…',

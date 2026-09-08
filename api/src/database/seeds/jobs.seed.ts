@@ -12,7 +12,7 @@ import { Seed } from './seed.interface';
  *
  * This is also what makes the JD-match feature testable without pasting a real
  * posting in by hand — before jobs.jobDescription existed, draftResume was sent
- * the bare jobPostingURL, which it has no way to open.
+ * the bare jobPostingUrl, which it has no way to open.
  */
 const ACME_JOB_DESCRIPTION = `Backend Engineer, Developer Platform — Acme Corp
 
@@ -109,9 +109,9 @@ export const jobsSeed: Seed = {
         await repo.save([
             {
                 companyName: 'Acme Corp',
-                jobPostingURL: 'https://boards.greenhouse.io/acme/jobs/123456',
-                companyPage: 'https://acme.example.com',
-                companyLinkedIn: 'https://www.linkedin.com/company/acme-corp',
+                jobPostingUrl: 'https://boards.greenhouse.io/acme/jobs/123456',
+                companyPageUrl: 'https://acme.example.com',
+                companyLinkedInUrl: 'https://www.linkedin.com/company/acme-corp',
                 jobDescription: ACME_JOB_DESCRIPTION,
                 status: Status.APPLIED,
                 dateApplied: '2026-07-03',
@@ -119,9 +119,9 @@ export const jobsSeed: Seed = {
             },
             {
                 companyName: 'Globex',
-                jobPostingURL: 'https://globex.example.com/careers/backend',
-                companyPage: 'https://globex.example.com',
-                companyLinkedIn: 'https://www.linkedin.com/company/globex',
+                jobPostingUrl: 'https://globex.example.com/careers/backend',
+                companyPageUrl: 'https://globex.example.com',
+                companyLinkedInUrl: 'https://www.linkedin.com/company/globex',
                 jobDescription: GLOBEX_JOB_DESCRIPTION,
                 status: Status.INTERVIEWING,
                 dateApplied: '2026-06-18',
@@ -129,10 +129,10 @@ export const jobsSeed: Seed = {
             },
             {
                 companyName: 'Initech',
-                jobPostingURL: 'https://initech.example.com/jobs/platform',
-                companyPage: 'https://initech.example.com',
-                companyLinkedIn: 'https://www.linkedin.com/company/initech',
-                extraURLs: 'https://www.crunchbase.com/organization/initech',
+                jobPostingUrl: 'https://initech.example.com/jobs/platform',
+                companyPageUrl: 'https://initech.example.com',
+                companyLinkedInUrl: 'https://www.linkedin.com/company/initech',
+                extraUrls: 'https://www.crunchbase.com/organization/initech',
                 jobDescription: INITECH_JOB_DESCRIPTION,
                 status: Status.NOT_APPLIED,
                 // Set explicitly rather than leaning on the CURRENT_DATE

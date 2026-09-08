@@ -50,10 +50,10 @@ export class JobDetailService {
             jobPatch.dateApplied = dto.dateApplied;
         if (dto.dateLastContacted !== undefined)
             jobPatch.dateLastContacted = dto.dateLastContacted;
-        if (dto.jobPostingURL !== undefined)
-            jobPatch.jobPostingURL = dto.jobPostingURL;
-        if (dto.companyPage !== undefined)
-            jobPatch.companyPage = dto.companyPage;
+        if (dto.jobPostingUrl !== undefined)
+            jobPatch.jobPostingUrl = dto.jobPostingUrl;
+        if (dto.companyPageUrl !== undefined)
+            jobPatch.companyPageUrl = dto.companyPageUrl;
 
         const job =
             Object.keys(jobPatch).length > 0
