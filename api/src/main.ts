@@ -20,8 +20,15 @@ async function bootstrap() {
     // @fastify/cors (a dependency of platform-fastify), so it has to happen
     // before listen() freezes plugin registration. No credentials: nothing is
     // authenticated yet, and enabling that later needs a real origin allowlist.
+    //
+    // `methods` must be explicit: @fastify/cors defaults to 'GET,HEAD,POST'
+    // only, unlike the Express `cors` package. Without this, every PATCH
+    // (job detail Save, status updates) and DELETE (cancelling job setup)
+    // request fails preflight in a real browser even though it works fine
+    // over curl, which never sends a preflight OPTIONS request at all.
     app.enableCors({
         origin: process.env.CORS_ORIGIN ?? 'http://localhost:4000',
+        methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE'],
         credentials: false,
     });
 
