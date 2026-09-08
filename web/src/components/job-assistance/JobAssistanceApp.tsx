@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { useJobTracker } from "@/hooks/useJobTracker";
-import { useJobProgressSimulation } from "@/hooks/useJobProgressSimulation";
+import { useCreateJob } from "@/hooks/useCreateJob";
 import { useRegenerateResume } from "@/hooks/useRegenerateResume";
 import { toJobId } from "@/lib/api/mappers";
 import { downloadTailoredResume } from "@/lib/job-assistance/generate-resume";
@@ -17,11 +16,13 @@ import ConfirmDeleteModal from "./ConfirmDeleteModal";
 
 export default function JobAssistanceApp() {
   const tracker = useJobTracker();
-  const progress = useJobProgressSimulation();
+  const setup = useCreateJob({
+    onCreated: tracker.addCreatedJob,
+    onFinished: tracker.applyJobDetail,
+    onDiscarded: (jobId) => tracker.removeJob(String(jobId)),
+  });
   const regen = useRegenerateResume((content) => tracker.applyRegeneratedContent(content));
-  const [setupJobId, setSetupJobId] = useState<string | null>(null);
   const draftTitle = tracker.draft?.companyName.trim() || "Job details";
-  const setupJob = tracker.jobs.find((j) => j.id === setupJobId) ?? null;
 
   function handleRegenerate() {
     if (!tracker.draft) return;
@@ -32,33 +33,11 @@ export default function JobAssistanceApp() {
     regen.start(jobId, keywords);
   }
 
-  // "Add to tracker" creates the row immediately, then kicks off the
-  // generation pipeline (research → tailoring → contact lookup) whose
-  // progress is shown in the modal below.
+  // "Add to tracker" runs the whole setup pipeline: POST /jobs, then the
+  // Perplexity research, then the tailored resume, then the Hunter lookup —
+  // in that order, because each step reads what the one before it wrote.
   function handleAddJob() {
-    // BACKEND: POST /api/jobs to create the row + enqueue the pipeline, then
-    // open the SSE stream with the returned id: progress.start(newJob.id).
-    const id = tracker.addToTracker();
-    setSetupJobId(id);
-    progress.start();
-  }
-
-  function finishSetup() {
-    progress.reset(); // BACKEND: close the EventSource
-    setSetupJobId(null);
-  }
-
-  function cancelSetup() {
-    // BACKEND: DELETE /api/jobs/:id — which should also abort any in-flight
-    // stage calls so a cancelled job stops burning Perplexity/Claude/Hunter credits.
-    if (setupJobId) tracker.removeJob(setupJobId);
-    finishSetup();
-  }
-
-  function retrySetup() {
-    // BACKEND: POST /api/jobs/:id/stages/:stage/retry — the SSE stream then
-    // resumes pushing running → done for the retried stage onward.
-    progress.retry();
+    setup.start(tracker.home);
   }
 
   return (
@@ -79,13 +58,14 @@ export default function JobAssistanceApp() {
         />
       </main>
 
-      {setupJobId && (
+      {setup.active && (
         <JobProgressModal
-          companyName={setupJob?.companyName ?? ""}
-          stages={progress.stages}
-          onCancel={cancelSetup}
-          onRetry={retrySetup}
-          onDone={finishSetup}
+          companyName={setup.companyName}
+          stages={setup.stages}
+          error={setup.error}
+          onCancel={() => void setup.cancel()}
+          onRetry={setup.retry}
+          onDone={setup.reset}
         />
       )}
 
