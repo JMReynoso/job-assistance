@@ -1,4 +1,4 @@
-import { ApiError, apiGet, apiPatch, apiPost } from "@/lib/api/client";
+import { ApiError, apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api/client";
 
 describe("apiGet", () => {
   afterEach(() => {
@@ -106,6 +106,70 @@ describe("apiPost", () => {
     }) as unknown as typeof fetch;
 
     await expect(apiPost("/generated-content/regenerate", {})).rejects.toBe(abortError);
+  });
+
+  it("carries the server's validation message as detail", async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: false,
+      status: 400,
+      json: async () => ({ statusCode: 400, message: ["companyPageUrl must be a URL"], error: "Bad Request" }),
+    })) as unknown as typeof fetch;
+
+    const error = await apiPost("/jobs", {}).catch((e: unknown) => e);
+    expect((error as ApiError).detail).toBe("companyPageUrl must be a URL");
+  });
+
+  it("leaves detail undefined when the body has no message", async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: false,
+      status: 502,
+      json: async () => ({}),
+    })) as unknown as typeof fetch;
+
+    const error = await apiPost("/jobs", {}).catch((e: unknown) => e);
+    expect((error as ApiError).detail).toBeUndefined();
+  });
+});
+
+describe("apiDelete", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("resolves on a 204 whose body can't be parsed, without parsing it", async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 204,
+      json: async () => {
+        throw new Error("no body");
+      },
+    })) as unknown as typeof fetch;
+
+    await expect(apiDelete("/jobs/1")).resolves.toBeUndefined();
+  });
+
+  it("throws an ApiError carrying the status and path for a non-ok response", async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: false,
+      status: 404,
+      json: async () => ({}),
+    })) as unknown as typeof fetch;
+
+    await expect(apiDelete("/jobs/1")).rejects.toMatchObject({
+      name: "ApiError",
+      status: 404,
+      path: "/jobs/1",
+    });
+  });
+
+  it("reports status 0 when the request never reached the server", async () => {
+    global.fetch = jest.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    }) as unknown as typeof fetch;
+
+    const error = await apiDelete("/jobs/1").catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(0);
   });
 });
 
