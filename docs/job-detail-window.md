@@ -5,7 +5,7 @@ The window that opens when you click **open** on a tracker row. This page covers
 - For the tables and endpoints themselves, see [data-model.md](data-model.md).
 - For how the API layers fit together, see [controllers-services-repositories.md](controllers-services-repositories.md).
 
-**Every editable field in the form is wired to the backend.** Clicking Save fires one `PATCH /jobs/:id/detail` that fans the draft out across `jobs`, `company_research` and `missing_keywords`. The one field that stays local-only is the job description textarea — see [What isn't wired](#what-isnt-wired) at the end. Regenerate Tailored Resume is a separate write, a real `POST /generated-content/regenerate` that updates the row in Postgres.
+**Every editable field in the form is wired to the backend.** Clicking Save fires one `PATCH /jobs/:id/detail` that fans the draft out across `jobs`, `company_research` and `missing_keywords`. The one field that stays local-only is the job description textarea — see [What isn't wired](#what-isnt-wired) at the end. Regenerate Tailored Resume is a separate write, a real `POST /generated-content/regenerate` that updates the row in Postgres. Getting a job into this window in the first place — the quick-add form's "Add to tracker" button — is also fully wired now; see [add-job-pipeline.md](add-job-pipeline.md) for that path.
 
 ---
 
@@ -90,13 +90,13 @@ Re-reading `/jobs/:id` when the list row already carries those fields is one red
 
 ### `toJobId` — the persisted-or-not guard
 
-`Job.id` is a **string** throughout the UI. A job created by `addToTracker()` has a UUID; a job from the API has its row id stringified. [`toJobId`](../web/src/lib/api/mappers.ts) is the one boundary that decides which is which:
+`Job.id` is a **string** throughout the UI. [`toJobId`](../web/src/lib/api/mappers.ts) is the one boundary that turns it back into the backend's numeric id:
 
 ```ts
 Number.isInteger(parsed) && parsed > 0 ? parsed : null
 ```
 
-`null` means "only exists locally", so `openRow` skips the fetch entirely. A locally-added job opens instantly with its own data and fires no request that could not have resolved — which falls out for free rather than needing a special case.
+`null` means "not a real backend id", so `openRow` skips the fetch entirely rather than firing a request that could never resolve. Every row in the tracker comes from the API now — `useCreateJob` only ever hands `useJobTracker.addCreatedJob` a job `POST /jobs` actually returned, see [add-job-pipeline.md](add-job-pipeline.md) — so this branch is unreachable through the UI today. It stays as a defensive guard rather than being removed: it costs nothing, and it's the one thing standing between a malformed id and a request built from `NaN`.
 
 ---
 
@@ -111,8 +111,8 @@ Number.isInteger(parsed) && parsed > 0 ? parsed : null
 | Status | `jobs` | `status`, via `STATUS_FROM_API` |
 | Date applied | `jobs` | `dateApplied` |
 | Date last contacted | `jobs` | `dateLastContacted` |
-| Job posting URL | `jobs` | `jobPostingURL` |
-| Company URL | `jobs` | `companyPage` |
+| Job posting URL | `jobs` | `jobPostingUrl` |
+| Company URL | `jobs` | `companyPageUrl` |
 | Contacts → name | `contacts` | `firstName` + `lastName`, joined |
 | Contacts → role | `contacts` | `position` |
 | Contacts → email | `contacts` | `email` |
@@ -129,7 +129,7 @@ Number.isInteger(parsed) && parsed > 0 ? parsed : null
 
 The job description textarea is the odd one out: unlike every other field on this list, editing it and clicking Save does **not** persist (see [What isn't wired](#what-isnt-wired)). What *does* reach the backend is whatever `jobs.jobDescription` already held when the row was created or last `PATCH`ed directly; regenerating reads that stored value, not whatever is currently typed in the open window.
 
-Three naming traps live in that table. The `jobs` entity spells it **`jobPostingURL`** (capital URL) while the UI uses `jobPostingUrl`; **`companyPage`** becomes `companyUrl`; and **Notes is research**, not a notes column — there is no free-text notes field anywhere in the schema.
+Two naming traps live in that table, now that the API and the `jobs` schema agree on `…Url` / `…Urls` throughout (see [data-model.md](data-model.md)). The UI still says `companyUrl` where the API says `companyPageUrl`, and `extraLinks` where the API says `extraUrls`. And **Notes is research**, not a notes column — there is no free-text notes field anywhere in the schema.
 
 ### Status translation
 
@@ -149,15 +149,15 @@ Present in the database, deliberately not surfaced:
 
 | Column | Why not |
 | --- | --- |
-| `jobs.companyLinkedIn` | Mapped onto the draft, but no field renders it |
-| `jobs.extraURLs` | Same — mapped, never rendered |
+| `jobs.companyLinkedInUrl` | Mapped onto the draft, but no field renders it |
+| `jobs.extraUrls` | Same — mapped, never rendered |
 | `company_research.urls` | The sources behind the summary. Nowhere to put them yet |
 | `company_research.company` | Duplicates `jobs.companyName` |
 | `contacts.type` | `personal` vs `generic`; confidence is the more useful signal |
 | `*Usage`, `*Cost`, `regenerateCount` on `generated_content` | Token accounting. Omitted from `ApiGeneratedContent` on purpose — listing them invites someone to render them |
 | `createdAt` / `updatedAt` everywhere | Not interesting to the person applying |
 
-`companyLinkedIn` and `extraURLs` are the two worth revisiting: they cost nothing to add to the grid, and they're already in the draft.
+`companyLinkedInUrl` and `extraUrls` are the two worth revisiting: they cost nothing to add to the grid, and they're already in the draft.
 
 ---
 
@@ -214,7 +214,7 @@ On the backend, `JobDetailService.update()` (in the new `jobDetail` module — s
 Two rules to know:
 
 - **Overwrite only — skip when the satellite row is absent.** A job with no `company_research` or `generated_content` row yet has its Notes/messages silently dropped from the patch rather than fabricating a row. Those tables stay purely API-generated.
-- **The five NOT NULL `jobs` columns are omitted from the patch when blank**, not sent as `""`. `companyName`, `dateApplied`, `dateLastContacted`, `jobPostingURL` and `companyPage` are validated with `@IsNotEmpty` / `@Matches` / `@IsUrl` specifically so a PATCH can never blank one out — sending `""` would 400 the entire save instead of just that field, so the client leaves them out and the old value survives.
+- **The five NOT NULL `jobs` columns are omitted from the patch when blank**, not sent as `""`. `companyName`, `dateApplied`, `dateLastContacted`, `jobPostingUrl` and `companyPageUrl` are validated with `@IsNotEmpty` / `@Matches` / `@IsUrl` specifically so a PATCH can never blank one out — sending `""` would 400 the entire save instead of just that field, so the client leaves them out and the old value survives.
 
 ---
 
@@ -236,10 +236,10 @@ Two rules to know:
 
 ## What isn't wired
 
-**The add form, contacts, delete, and the job description textarea.** The add form creates a local row and never `POST`s it; editing a contact has no affordance at all (the table is read-only, see below); Delete removes the row from React state only; and the job description textarea's edits never leave the browser even though everything else in the form now saves. Reload the page after any of these and the change is gone.
+**Contacts, delete, and the job description textarea.** Editing a contact has no affordance at all (the table is read-only, see below); Delete removes the row from React state only; and the job description textarea's edits never leave the browser even though everything else in the form now saves. Reload the page after either of the latter two and the change is gone.
 
 **Regenerate Tailored Resume is a second, separate write path.** Clicking it, with at least one keyword checked, fires a real `POST /generated-content/regenerate` — [useRegenerateResume.ts](../web/src/hooks/useRegenerateResume.ts) owns the call, [RegenerateProgressModal.tsx](../web/src/components/job-assistance/RegenerateProgressModal.tsx) shows a four-stage progress popup for it, and the response's `tailoredResume`/`jdMatchPercent` get folded back into the open row on success. Two things worth knowing about it:
-- **The progress stages are cosmetic**, the same way the job-setup pipeline's are — the backend is one POST with no event stream, so the stepper paces a plausible timeline rather than reporting real server progress. It holds at the last stage until the response actually lands.
+- **The progress stages are cosmetic** — unlike the add-job pipeline's, which reports one real stage per API call (see [add-job-pipeline.md](add-job-pipeline.md)), regenerate is one POST with no event stream, so its stepper paces a plausible timeline rather than reporting real server progress. It holds at the last stage until the response actually lands.
 - **Cancelling only aborts the browser's request.** The confirm-before-cancel dialog says so: the Claude calls already in flight on the server finish regardless, and the row is still updated when they do. There is no server-side cancellation.
 
 The contacts table is **read-only by design**, not by omission: those rows are lookup results owned by the contacts endpoint and refreshed by re-running the lookup, so a hand correction would be overwritten on the next run.
