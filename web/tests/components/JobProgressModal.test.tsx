@@ -14,6 +14,7 @@ function renderModal(stages: JobStage[], props: Partial<React.ComponentProps<typ
     <JobProgressModal
       companyName="Acme Robotics"
       stages={stages}
+      error={props.error}
       onCancel={props.onCancel ?? jest.fn()}
       onRetry={props.onRetry ?? jest.fn()}
       onDone={props.onDone ?? jest.fn()}
@@ -44,6 +45,21 @@ describe("JobProgressModal", () => {
     renderModal(stagesWith({ created: "done", research: "failed" }));
 
     expect(screen.getByText(/Company research failed/)).toBeInTheDocument();
+  });
+
+  it("renders the API's own error message under a failed stage", () => {
+    renderModal(stagesWith({ created: "done", research: "failed" }), {
+      error: "companyPageUrl must be a URL",
+    });
+
+    expect(screen.getByText("companyPageUrl must be a URL")).toBeInTheDocument();
+  });
+
+  it("renders only the retry hint when a failed stage has no error message", () => {
+    renderModal(stagesWith({ created: "done", research: "failed" }));
+
+    expect(screen.getByText(/Company research failed/)).toBeInTheDocument();
+    expect(screen.queryByText("companyPageUrl must be a URL")).not.toBeInTheDocument();
   });
 
   it("offers a Try again button on a failed stage and calls onRetry", async () => {
