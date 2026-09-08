@@ -61,13 +61,45 @@ describe("AddJobForm", () => {
     expect(screen.queryByText("Job posting URL")).not.toBeInTheDocument();
   });
 
-  it("calls onAdd when the button is clicked", async () => {
+  it("calls onAdd when the button is clicked with every required field filled", async () => {
     const user = userEvent.setup();
     const onAdd = jest.fn();
-    render(<AddJobForm home={buildHomeForm()} onFieldChange={jest.fn()} onAdd={onAdd} />);
+    const home = buildHomeForm({
+      companyName: "Acme Robotics",
+      jobPosting: "https://acme.example/careers/1",
+      companyPage: "https://acme.example",
+      companyLinkedIn: "https://linkedin.com/company/acme",
+      jobDescription: "We are looking for a backend engineer…",
+    });
+    render(<AddJobForm home={home} onFieldChange={jest.fn()} onAdd={onAdd} />);
 
     await user.click(screen.getByRole("button", { name: "Add to tracker" }));
 
     expect(onAdd).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables the button and lists every missing field for an empty form", () => {
+    render(<AddJobForm home={buildHomeForm()} onFieldChange={jest.fn()} onAdd={jest.fn()} />);
+
+    const button = screen.getByRole("button", { name: "Add to tracker" });
+    expect(button).toBeDisabled();
+    expect(
+      screen.getByText("Still needed: Company name, Job posting link, Company page, Company LinkedIn, Job description."),
+    ).toBeInTheDocument();
+  });
+
+  it("enables the button once every required field is filled", () => {
+    const home = buildHomeForm({
+      companyName: "Acme Robotics",
+      jobPosting: "https://acme.example/careers/1",
+      companyPage: "https://acme.example",
+      companyLinkedIn: "https://linkedin.com/company/acme",
+      jobDescription: "We are looking for a backend engineer…",
+    });
+    render(<AddJobForm home={home} onFieldChange={jest.fn()} onAdd={jest.fn()} />);
+
+    const button = screen.getByRole("button", { name: "Add to tracker" });
+    expect(button).toBeEnabled();
+    expect(screen.queryByText(/Still needed:/)).not.toBeInTheDocument();
   });
 });

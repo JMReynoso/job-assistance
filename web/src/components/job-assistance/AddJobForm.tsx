@@ -1,6 +1,7 @@
 "use client";
 
 import type { HomeFormState } from "@/lib/job-assistance/types";
+import { missingAddFields } from "@/lib/job-assistance/new-job";
 import FormField from "./FormField";
 import TextAreaField from "./TextAreaField";
 
@@ -18,6 +19,12 @@ const FIELDS: { key: keyof HomeFormState; label: string; placeholder: string }[]
 ];
 
 export default function AddJobForm({ home, onFieldChange, onAdd }: AddJobFormProps) {
+  // The pipeline can't start half-filled: three of these are required by the
+  // API, and a blank job description would have Claude tailor a resume
+  // against nothing.
+  const missing = missingAddFields(home);
+  const ready = missing.length === 0;
+
   return (
     <section className="mb-7 rounded-[22px] border border-card-border bg-card px-7 py-[26px] shadow-[0_1px_3px_rgba(70,55,35,0.04)]">
       <h2 className="m-0 mb-[3px] font-heading text-[23px] font-semibold">Start tracking a job</h2>
@@ -53,10 +60,17 @@ export default function AddJobForm({ home, onFieldChange, onAdd }: AddJobFormPro
         minHeight={70}
       />
 
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-3">
+        {!ready && <span className="text-[13px] text-muted">Still needed: {missing.join(", ")}.</span>}
         <button
           onClick={onAdd}
-          className="rounded-xl bg-sage px-6 py-[11px] text-[14px] font-semibold text-white shadow-[0_2px_6px_rgba(90,70,40,0.12)] hover:brightness-105"
+          disabled={!ready}
+          style={{
+            background: ready ? "var(--color-sage)" : "#e6e0d1",
+            color: ready ? "#fff" : "#b3aa98",
+            cursor: ready ? "pointer" : "not-allowed",
+          }}
+          className="rounded-xl px-6 py-[11px] text-[14px] font-semibold shadow-[0_2px_6px_rgba(90,70,40,0.12)] transition-colors duration-200"
         >
           Add to tracker
         </button>
