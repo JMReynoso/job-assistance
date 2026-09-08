@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { HomeFormState, Job, JobKeyword, JobStatus } from "@/lib/job-assistance/types";
 import { WARN_ON_CLOSE } from "@/lib/job-assistance/constants";
+import type { JobDetail } from "@/lib/api/jobs";
 import { fetchJobDetail, fetchJobs, updateJobDetail } from "@/lib/api/jobs";
 import { mapJob, mergeJobDetail, toJobDetailPatch, toJobId } from "@/lib/api/mappers";
+import type { ApiJob } from "@/lib/api/types";
 
 const EMPTY_HOME_FORM: HomeFormState = {
   companyName: "",
@@ -23,20 +25,6 @@ export type DetailStatus = "idle" | LoadStatus;
 
 /** Save is idle until the button is pressed; "error" leaves the draft dirty. */
 export type SaveStatus = "idle" | "saving" | "error";
-
-function createId(): string {
-  return typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-/** Today as 'YYYY-MM-DD' — the format both the date inputs and the API use. */
-function today(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${now.getFullYear()}-${month}-${day}`;
-}
 
 export function useJobTracker() {
   const [home, setHome] = useState<HomeFormState>(EMPTY_HOME_FORM);
@@ -85,31 +73,27 @@ export function useJobTracker() {
     setHome((prev) => ({ ...prev, [field]: value }));
   }
 
-  function addToTracker(): string {
-    const name = home.companyName.trim() || "Untitled role";
-    // Local-only until POST /jobs is wired: the id is deliberately non-numeric
-    // so toJobId() reports it as unpersisted and no detail fetch is attempted.
-    const newJob: Job = {
-      id: createId(),
-      companyName: name,
-      status: "Interested",
-      dateApplied: today(),
-      dateLastContacted: today(),
-      contacts: [],
-      companyUrl: home.companyPage,
-      jobPostingUrl: home.jobPosting,
-      companyLinkedInUrl: home.companyLinkedIn,
-      extraLinks: home.extraLinks,
-      jobDescription: home.jobDescription,
-      notes: "",
-      recruiterMessage: "",
-      followupMessage: "",
-      jdMatchPercent: null,
-      missingKeywords: [],
-    };
-    setJobs((prev) => [newJob, ...prev]);
+  /**
+   * Puts a job the API just created at the top of the list and empties the
+   * quick-add form. Prepended rather than re-fetched: GET /jobs is `id ASC`,
+   * so reloading would bury the new row at the bottom of the table.
+   *
+   * The form is cleared here rather than on click, so a create that 400s
+   * leaves everything the user typed intact to fix and resend.
+   */
+  function addCreatedJob(api: ApiJob) {
+    setJobs((prev) => [mapJob(api), ...prev]);
     setHome(EMPTY_HOME_FORM);
-    return newJob.id;
+  }
+
+  /**
+   * Folds a finished setup pipeline's fresh read onto its row, so the tracker
+   * holds the research, messages and match score straight away instead of
+   * only once the detail window is opened.
+   */
+  function applyJobDetail(detail: JobDetail) {
+    const merged = mergeJobDetail(detail);
+    setJobs((prev) => prev.map((j) => (j.id === merged.id ? merged : j)));
   }
 
   function removeJob(id: string) {
@@ -281,7 +265,8 @@ export function useJobTracker() {
   return {
     home,
     setHomeField,
-    addToTracker,
+    addCreatedJob,
+    applyJobDetail,
 
     jobs,
     jobsStatus,

@@ -95,63 +95,35 @@ describe("useJobTracker", () => {
       expect(result.current.home).toEqual(buildHomeForm({ companyName: "Acme Robotics" }));
     });
 
-    it("adds a new job to the front of the list, mapped from the form, and clears the form", async () => {
+    it("prepends a job the API created, mapped onto the list, and clears the form", async () => {
       const { result } = await renderLoaded();
+      act(() => result.current.setHomeField("companyName", "should be cleared"));
 
       act(() => {
-        result.current.setHomeField("companyName", "Acme Robotics");
-        result.current.setHomeField("jobPosting", "https://acme.example/careers/1");
-        result.current.setHomeField("companyPage", "https://acme.example");
-        result.current.setHomeField("companyLinkedIn", "https://linkedin.com/company/acme");
-        result.current.setHomeField("extraLinks", "https://glassdoor.com/acme");
-      });
-      act(() => {
-        result.current.addToTracker();
+        result.current.addCreatedJob(buildApiJob({ id: 99, companyName: "Acme Robotics", status: "not_applied" }));
       });
 
       expect(result.current.jobs).toHaveLength(4);
-      expect(result.current.jobs[0]).toMatchObject({
-        companyName: "Acme Robotics",
-        status: "Interested",
-        jobPostingUrl: "https://acme.example/careers/1",
-        companyUrl: "https://acme.example",
-        companyLinkedInUrl: "https://linkedin.com/company/acme",
-        extraLinks: "https://glassdoor.com/acme",
-      });
+      expect(result.current.jobs[0]).toMatchObject({ id: "99", companyName: "Acme Robotics", status: "Interested" });
       expect(result.current.home).toEqual(buildHomeForm());
     });
 
-    it("dates a new job today", async () => {
+    it("applyJobDetail folds research, content and match score onto the matching row only", async () => {
       const { result } = await renderLoaded();
 
       act(() => {
-        result.current.addToTracker();
+        result.current.applyJobDetail({
+          job: JOBS[0],
+          contacts: [buildApiContact()],
+          research: buildApiCompanyResearch({ summary: "Founded 2011." }),
+          content: buildApiGeneratedContent({ jdMatchPercent: 81 }),
+        });
       });
 
-      const iso = new Date().toISOString().slice(0, 10);
-      expect(result.current.jobs[0].dateApplied).toBe(iso);
-      expect(result.current.jobs[0].dateLastContacted).toBe(iso);
-    });
-
-    it("falls back to 'Untitled role' when no company name is given", async () => {
-      const { result } = await renderLoaded();
-
-      act(() => {
-        result.current.addToTracker();
-      });
-
-      expect(result.current.jobs[0].companyName).toBe("Untitled role");
-    });
-
-    it("treats a whitespace-only company name as blank", async () => {
-      const { result } = await renderLoaded();
-
-      act(() => result.current.setHomeField("companyName", "   "));
-      act(() => {
-        result.current.addToTracker();
-      });
-
-      expect(result.current.jobs[0].companyName).toBe("Untitled role");
+      const [first, second] = result.current.jobs;
+      expect(first.notes).toBe("Founded 2011.");
+      expect(first.jdMatchPercent).toBe(81);
+      expect(second.notes).toBe("");
     });
   });
 
@@ -224,10 +196,9 @@ describe("useJobTracker", () => {
       expect(result.current.draft).toBeNull();
     });
 
-    it("skips the fetch entirely for a job that was never persisted", async () => {
-      const { result, fetchMock } = await renderLoaded();
-      act(() => {
-        result.current.addToTracker();
+    it("skips the fetch entirely for a row whose id isn't a backend id", async () => {
+      const { result, fetchMock } = await renderLoaded({
+        jobs: [buildApiJob({ id: 0, companyName: "Unpersisted" })],
       });
       const localId = result.current.jobs[0].id;
       fetchMock.mockClear();
@@ -236,7 +207,7 @@ describe("useJobTracker", () => {
 
       expect(fetchMock).not.toHaveBeenCalled();
       expect(result.current.detailStatus).toBe("idle");
-      expect(result.current.draft?.companyName).toBe("Untitled role");
+      expect(result.current.draft?.companyName).toBe("Unpersisted");
     });
 
     it("reports an error when the detail fetch fails, and recovers on retry", async () => {
@@ -357,8 +328,8 @@ describe("useJobTracker", () => {
       expect(init.method).toBe("PATCH");
       const body = JSON.parse(String(init.body));
       expect(body).toMatchObject({
-        jobPostingURL: "https://example.com/job",
-        companyPage: "https://example.com",
+        jobPostingUrl: "https://example.com/job",
+        companyPageUrl: "https://example.com",
         status: "interviewing",
       });
     });
@@ -387,8 +358,8 @@ describe("useJobTracker", () => {
       expect(body).not.toHaveProperty("companyName");
       expect(body).not.toHaveProperty("dateApplied");
       expect(body).not.toHaveProperty("dateLastContacted");
-      expect(body).not.toHaveProperty("jobPostingURL");
-      expect(body).not.toHaveProperty("companyPage");
+      expect(body).not.toHaveProperty("jobPostingUrl");
+      expect(body).not.toHaveProperty("companyPageUrl");
     });
 
     it("sends exactly the checked keywords as includedKeywords", async () => {
@@ -430,10 +401,9 @@ describe("useJobTracker", () => {
       expect(result.current.dirty).toBe(true);
     });
 
-    it("saves a locally-added job to state without issuing a fetch", async () => {
-      const { result, fetchMock } = await renderLoaded();
-      act(() => {
-        result.current.addToTracker();
+    it("saves a row whose id isn't a backend id to state without issuing a fetch", async () => {
+      const { result, fetchMock } = await renderLoaded({
+        jobs: [buildApiJob({ id: 0, companyName: "Unpersisted" })],
       });
       const localId = result.current.jobs[0].id;
       await openAndSettle(result, localId);
