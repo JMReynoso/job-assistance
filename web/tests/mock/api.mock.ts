@@ -16,10 +16,10 @@ export function buildApiJob(overrides: Partial<ApiJob> = {}): ApiJob {
   return {
     id: 1,
     companyName: "Willow & Oak",
-    jobPostingURL: "https://boards.greenhouse.io/willowoak/jobs/1",
-    companyPage: "https://willowoak.co",
-    companyLinkedIn: "https://www.linkedin.com/company/willowoak",
-    extraURLs: null,
+    jobPostingUrl: "https://boards.greenhouse.io/willowoak/jobs/1",
+    companyPageUrl: "https://willowoak.co",
+    companyLinkedInUrl: "https://www.linkedin.com/company/willowoak",
+    extraUrls: null,
     status: "applied",
     dateApplied: "2026-07-03",
     dateLastContacted: "2026-07-09",
@@ -105,6 +105,8 @@ export interface MockApiOptions {
   content?: ByJob<ApiGeneratedContent | null>;
   /** Response for POST /generated-content/regenerate. */
   regenerate?: ApiGeneratedContent;
+  /** Response for POST /jobs; the posted body is echoed over it. */
+  createdJob?: ApiJob;
   /**
    * Substring of a path that should fail, e.g. "/jobs" or "/contacts". Use
    * "/detail" to force PATCH /jobs/:id/detail specifically without also
@@ -113,6 +115,8 @@ export interface MockApiOptions {
   failOn?: string;
   /** Status for the failing route; 0 simulates never reaching the server. */
   failStatus?: number;
+  /** Substring of a path whose request never settles — for testing cancel. */
+  hangOn?: string;
 }
 
 /**
@@ -126,8 +130,10 @@ export function mockApi(options: MockApiOptions = {}): jest.Mock {
     research = buildApiCompanyResearch(),
     content = buildApiGeneratedContent(),
     regenerate = buildApiGeneratedContent({ jdMatchPercent: 88 }),
+    createdJob = buildApiJob({ id: 99 }),
     failOn,
     failStatus = 500,
+    hangOn,
   } = options;
 
   const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -138,8 +144,35 @@ export function mockApi(options: MockApiOptions = {}): jest.Mock {
       return { ok: false, status: failStatus, json: async () => ({}) } as Response;
     }
 
+    if (hangOn && url.includes(hangOn)) return new Promise<Response>(() => {});
+
+    const method = init?.method ?? "GET";
+    const sent = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
+
     if (url.includes("/generated-content/regenerate")) {
       return { ok: true, status: 201, json: async () => regenerate } as Response;
+    }
+
+    if (method === "POST") {
+      const jobId = Number(sent.jobId);
+      if (url.endsWith("/jobs")) {
+        return { ok: true, status: 201, json: async () => ({ ...createdJob, ...sent }) } as Response;
+      }
+      if (url.endsWith("/company-research")) {
+        const row = resolveByJob(research, jobId) ?? buildApiCompanyResearch({ jobId });
+        return { ok: true, status: 201, json: async () => row } as Response;
+      }
+      if (url.endsWith("/generated-content")) {
+        const row = resolveByJob(content, jobId) ?? buildApiGeneratedContent({ jobId });
+        return { ok: true, status: 201, json: async () => row } as Response;
+      }
+      if (url.endsWith("/contacts")) {
+        return { ok: true, status: 201, json: async () => resolveByJob(contacts, jobId) } as Response;
+      }
+    }
+
+    if (method === "DELETE") {
+      return { ok: true, status: 204, json: async () => null } as Response;
     }
 
     const detailMatch = url.match(/\/jobs\/(\d+)\/detail$/);

@@ -49,6 +49,9 @@ export const STAGE_META: Record<JobStageKey, StageMeta> = Object.fromEntries(
   JOB_PROGRESS_STAGES.map((s) => [s.key, s]),
 ) as Record<JobStageKey, StageMeta>;
 
+/** The stage keys in pipeline order — the order useCreateJob makes its calls in. */
+export const JOB_STAGE_KEYS: JobStageKey[] = JOB_PROGRESS_STAGES.map((s) => s.key);
+
 /** A fresh pipeline with every stage still pending. */
 export function initialStages(): JobStage[] {
   return JOB_PROGRESS_STAGES.map((s) => ({ key: s.key, status: "pending" }));

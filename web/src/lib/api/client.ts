@@ -10,9 +10,27 @@ export class ApiError extends Error {
     readonly status: number,
     readonly path: string,
     message: string,
+    /** The API's own explanation, when it sent one — Nest's 400s name the field. */
+    readonly detail?: string,
   ) {
     super(message);
     this.name = "ApiError";
+  }
+}
+
+/**
+ * Nest error bodies are `{ statusCode, message, error }`, where `message` is a
+ * string for a thrown exception and an array of strings for a validation
+ * failure. Anything else — an empty 502 body, an HTML error page — yields
+ * undefined rather than throwing on top of the error we're already reporting.
+ */
+async function errorDetail(response: Response): Promise<string | undefined> {
+  try {
+    const body = (await response.json()) as { message?: string | string[] };
+    if (Array.isArray(body?.message)) return body.message.join(", ");
+    return typeof body?.message === "string" ? body.message : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -38,7 +56,12 @@ export async function apiGet<T>(path: string): Promise<T> {
   }
 
   if (!response.ok) {
-    throw new ApiError(response.status, path, `GET ${path} failed (${response.status})`);
+    throw new ApiError(
+      response.status,
+      path,
+      `GET ${path} failed (${response.status})`,
+      await errorDetail(response),
+    );
   }
 
   return (await response.json()) as T;
@@ -70,7 +93,12 @@ async function sendJson<T>(
   }
 
   if (!response.ok) {
-    throw new ApiError(response.status, path, `${method} ${path} failed (${response.status})`);
+    throw new ApiError(
+      response.status,
+      path,
+      `${method} ${path} failed (${response.status})`,
+      await errorDetail(response),
+    );
   }
 
   return (await response.json()) as T;
@@ -89,4 +117,31 @@ export function apiPost<T>(path: string, body: unknown, signal?: AbortSignal): P
 /** PATCHes JSON to the API. Same error contract as apiPost. */
 export function apiPatch<T>(path: string, body: unknown): Promise<T> {
   return sendJson<T>("PATCH", path, body);
+}
+
+/**
+ * DELETEs a resource. Answers 204 with no body, so nothing is parsed and
+ * nothing is returned — the caller only cares that it worked.
+ */
+export async function apiDelete(path: string): Promise<void> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "DELETE",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+  } catch {
+    throw new ApiError(0, path, "Couldn't reach the server.");
+  }
+
+  if (!response.ok) {
+    throw new ApiError(
+      response.status,
+      path,
+      `DELETE ${path} failed (${response.status})`,
+      await errorDetail(response),
+    );
+  }
 }

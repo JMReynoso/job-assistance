@@ -57,6 +57,7 @@ The arrow matters: **`generated_content` can't be created until `company_researc
 - **Request bodies are validated and stripped.** A global `ValidationPipe` with `whitelist: true` means any field not declared on the DTO is silently dropped before your service sees it; `transform: true` turns `"5"` into `5` where the DTO says number.
 - **Errors are consistent:** `400` from validation, `404` raised by the service when a row is missing, `503` when an external API is busy or unreachable, `500` from [`BaseRepository`](../api/src/entities/base.repository.ts) if Postgres itself fails (the real error is logged, never returned). The three `by-job/:jobId` reads are the deliberate exception — they answer `200` with `[]` or `null` rather than 404ing; see [below](#the-by-job-routes-never-404).
 - **Migrations own the schema.** `synchronize` is off — editing an entity does nothing until you write a migration.
+- **Every URL field is spelled `…Url` / `…Urls`** across every entity and DTO. The one trap this leaves: `jobs.extraUrls` is a single `text` URL, while `CreateCompanyResearchDto.extraUrls` is a `string[]` — same name, different type.
 
 ---
 
@@ -70,10 +71,10 @@ The root record. Created by hand (or by the frontend); everything else reference
 | --- | --- | --- | --- |
 | `id` | `SERIAL` | no | PK |
 | `companyName` | `text` | no | |
-| `jobPostingURL` | `text` | no | The original posting |
-| `companyPage` | `text` | no | Company website — also what Hunter's domain lookup is derived from |
-| `companyLinkedIn` | `text` | no | |
-| `extraURLs` | `text` | **yes** | One extra link (Crunchbase, etc.) |
+| `jobPostingUrl` | `text` | no | The original posting |
+| `companyPageUrl` | `text` | no | Company website — also what Hunter's domain lookup is derived from |
+| `companyLinkedInUrl` | `text` | no | |
+| `extraUrls` | `text` | **yes** | One extra link (Crunchbase, etc.) |
 | `jobDescription` | `text` | **yes** | The full posting text, pasted once and reused by every `generated_content` create/regenerate |
 | `status` | `text` | no | Default `'not_applied'` |
 | `dateApplied` | `date` | no | Default `CURRENT_DATE` — the day the application went in |
@@ -97,7 +98,7 @@ The root record. Created by hand (or by the frontend); everything else reference
 | `PATCH` | `/jobs/:id/detail` | `UpdateJobDetailDto` (all fields optional) | `200` · `404` — the job detail window's Save; see below |
 | `DELETE` | `/jobs/:id` | — | `204` · `404` |
 
-**`CreateJobDto`** — `companyName` (≤255 chars), `jobPostingURL`, `companyPage`, `companyLinkedIn` are required; `extraURLs`, `status`, `dateApplied`, and `dateLastContacted` optional. All four URL fields are validated with `@IsUrl()`.
+**`CreateJobDto`** — `companyName` (≤255 chars), `jobPostingUrl`, `companyPageUrl`, `companyLinkedInUrl` are required; `extraUrls`, `status`, `dateApplied`, and `dateLastContacted` optional. All four URL fields are validated with `@IsUrl()`.
 
 The two dates are matched against `/^\d{4}-\d{2}-\d{2}$/` rather than `@IsDateString()` — which would also accept a full ISO datetime, and a `date` column has nowhere to put the time. `@Matches` also **rejects `''`** where `@IsOptional()` alone would not, so neither `POST` nor (via `PartialType`) `PATCH` can blank one back out.
 
@@ -105,7 +106,7 @@ The two dates are matched against `/^\d{4}-\d{2}-\d{2}$/` rather than `@IsDateSt
 
 ### How rows get written
 
-Straightforwardly — `JobsService` hands the DTO to `JobsRepository.create()`, which is a plain TypeORM `save()`. No external API involved.
+Straightforwardly — `JobsService` hands the DTO to `JobsRepository.create()`, which is a plain TypeORM `save()`. No external API involved. In practice, this is driven by the web app's "Add to tracker" button — the first of the five steps in its setup pipeline; see [add-job-pipeline.md](add-job-pipeline.md).
 
 ---
 
@@ -137,7 +138,7 @@ One row per research run. See [perplexity-api.md](perplexity-api.md) for the par
 
 **No `PATCH`** — a research row is a snapshot of one API run; re-run it rather than edit it.
 
-**`CreateCompanyResearchDto`** — `jobId` (positive int), `companyName`, `jobPostingUrl`, `companyPageUrl`, `companyLinkedInUrl` required; `extraLinks` (array of URLs) optional. The three URLs plus any extras become Perplexity's `verifyUrls` — trusted pages it cross-checks its claims against.
+**`CreateCompanyResearchDto`** — `jobId` (positive int), `companyName`, `jobPostingUrl`, `companyPageUrl`, `companyLinkedInUrl` required; `extraUrls` (array of URLs) optional. The three URLs plus any extras become Perplexity's `verifyUrls` — trusted pages it cross-checks its claims against.
 
 ### How rows get written
 
@@ -376,7 +377,7 @@ The three external-API modules are deliberately **not** app-wide: each needs its
 ## Known gaps and gotchas
 
 - **`PATCH /generated-content/:id` returns `500` for most bodies.** `UpdateGeneratedContentDto` is `PartialType(CreateGeneratedContentDto)`, so it accepts `jobPosting`, `companyWebsite`, and `companyName` — none of which are columns on the entity. TypeORM throws `EntityPropertyNotFoundError` for any non-column property in an update, which `BaseRepository` turns into a generic 500. Only `jobId` happens to work. The fix is what `contacts` already does: write the update DTO against the row's own fields (`outreachMessage`, `followupMessage`, …) instead of deriving it from the create DTO.
-- **No foreign keys anywhere, except `missing_keywords`.** `jobId` is a bare integer on every other table, so nothing stops a row pointing at a job that doesn't exist, and `DELETE /jobs/:id` leaves its research, content, and contacts behind as orphans. Cleanup is manual today. `missing_keywords.generatedContentId` is the first and only real FK in the schema (`ON DELETE CASCADE`), so `DELETE /generated-content/:id` does clean up its own keyword rows.
+- **No foreign keys anywhere, except `missing_keywords`.** `jobId` is a bare integer on every other table, so nothing stops a row pointing at a job that doesn't exist, and `DELETE /jobs/:id` leaves its research, content, and contacts behind as orphans. Cleanup is manual today — the one place that does it is the web app's cancel-setup path, which deletes a run's contact, content, research, and job rows itself, in that order, precisely because there's no cascade to lean on; see [add-job-pipeline.md](add-job-pipeline.md#cancel-what-it-deletes-in-what-order-and-why-the-client-does-it-by-hand). `missing_keywords.generatedContentId` is the first and only real FK in the schema (`ON DELETE CASCADE`), so `DELETE /generated-content/:id` does clean up its own keyword rows.
 - **`company_research` and `generated_content` allow unlimited rows per job.** Reads that want "the current one" order by `id DESC` and take the newest. `contacts` is the exception — one row per person per job, enforced by the unique index.
 - **`generated_content.tailoredResume` is a file path.** The PDF lives on the `resume-storage` Docker volume; the row just points at it. Delete the row and the file stays; wipe the volume and the path dangles.
 - **Seeds don't re-run on an already-seeded database.** Each seed is guarded by `count() > 0`, so a dev DB seeded before a column existed never picks up the values later written into the seed file. This is now the most likely reason the JD-match feature looks broken: a database seeded before `jobs.jobDescription` and the match columns landed keeps three jobs with a `NULL` description and no match percentage, so no chips render and `POST /generated-content/regenerate` answers `400`. `missing_keywords` is guarded the same way, so it stays empty even though `generated_content` has rows. `docker compose -f infra/docker-compose.dev.yml down -v` is what gets you the fixtures exactly as written; `PATCH /jobs/:id` with a `jobDescription` is the surgical alternative.

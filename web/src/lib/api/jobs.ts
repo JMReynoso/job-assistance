@@ -1,7 +1,11 @@
-import { apiGet, apiPatch, apiPost } from "./client";
+import { apiDelete, apiGet, apiPatch, apiPost } from "./client";
 import type {
   ApiCompanyResearch,
   ApiContact,
+  ApiCreateCompanyResearch,
+  ApiCreateGeneratedContent,
+  ApiCreateJob,
+  ApiFindContacts,
   ApiGeneratedContent,
   ApiJob,
   ApiJobDetailPatch,
@@ -68,4 +72,62 @@ export function updateJobDetail(
   patch: ApiJobDetailPatch,
 ): Promise<JobDetail> {
   return apiPatch<JobDetail>(`/jobs/${jobId}/detail`, patch);
+}
+
+/**
+ * The four writes behind "Add to tracker", in the order the setup pipeline
+ * runs them. Each takes the AbortSignal the progress modal's cancel button
+ * fires, so a cancelled run stops paying for calls it no longer wants.
+ */
+
+export function createJob(body: ApiCreateJob, signal?: AbortSignal): Promise<ApiJob> {
+  return apiPost<ApiJob>("/jobs", body, signal);
+}
+
+/** Runs two live Perplexity searches. Seconds, not milliseconds. */
+export function createCompanyResearch(
+  body: ApiCreateCompanyResearch,
+  signal?: AbortSignal,
+): Promise<ApiCompanyResearch> {
+  return apiPost<ApiCompanyResearch>("/company-research", body, signal);
+}
+
+/**
+ * Four Claude calls and a PDF render — the slowest endpoint in the app. 404s
+ * unless the job already has a company_research row, which is why the caller
+ * must await createCompanyResearch first.
+ */
+export function createGeneratedContent(
+  body: ApiCreateGeneratedContent,
+  signal?: AbortSignal,
+): Promise<ApiGeneratedContent> {
+  return apiPost<ApiGeneratedContent>("/generated-content", body, signal);
+}
+
+/** Runs a Hunter domain search. Returns *every* contact on the job, not just new ones. */
+export function findContacts(body: ApiFindContacts, signal?: AbortSignal): Promise<ApiContact[]> {
+  return apiPost<ApiContact[]>("/contacts", body, signal);
+}
+
+/**
+ * Undo for a cancelled setup run. Four separate deletes because the schema has
+ * no cascade to lean on: `jobId` is a bare integer with no foreign key, so
+ * deleting the job leaves its research, content and contacts pointing at
+ * nothing. (`DELETE /generated-content/:id` does clean up its own
+ * missing_keywords — that FK is the schema's only one.)
+ */
+export function deleteJob(jobId: number): Promise<void> {
+  return apiDelete(`/jobs/${jobId}`);
+}
+
+export function deleteCompanyResearch(id: number): Promise<void> {
+  return apiDelete(`/company-research/${id}`);
+}
+
+export function deleteGeneratedContent(id: number): Promise<void> {
+  return apiDelete(`/generated-content/${id}`);
+}
+
+export function deleteContact(id: number): Promise<void> {
+  return apiDelete(`/contacts/${id}`);
 }

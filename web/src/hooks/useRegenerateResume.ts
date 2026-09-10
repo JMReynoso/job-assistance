@@ -6,7 +6,7 @@ import { regenerateTailoredResume } from "@/lib/api/jobs";
 import type { RegenerateStage } from "@/lib/job-assistance/types";
 import { initialRegenerateStages } from "@/lib/job-assistance/regenerate-progress";
 
-const STEP_MS = 1400; // wall-clock time budget per stage, matches useJobProgressSimulation
+const STEP_MS = 1400; // wall-clock time budget per stage, matches the setup pipeline's old pacing
 
 /**
  * Drives the regenerate-resume progress modal. Unlike the job-setup pipeline,
@@ -14,8 +14,7 @@ const STEP_MS = 1400; // wall-clock time budget per stage, matches useJobProgres
  * real to report mid-flight: the stepper paces stages 0..n-2 on a timer and
  * then holds at the last stage until the actual response lands, at which
  * point every stage flips to done together. The timing is cosmetic, not a
- * status report — same precedent as useJobProgressSimulation's "BACKEND
- * WIRING" note.
+ * status report.
  */
 export function useRegenerateResume(onSuccess: (content: ApiGeneratedContent) => void) {
   const [stages, setStages] = useState<RegenerateStage[]>([]);

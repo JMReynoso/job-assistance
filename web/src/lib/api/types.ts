@@ -22,11 +22,10 @@ export type ApiStatus =
 export interface ApiJob {
   id: number;
   companyName: string;
-  /** Capital URL — the entity's spelling, not a typo. */
-  jobPostingURL: string;
-  companyPage: string;
-  companyLinkedIn: string;
-  extraURLs: string | null;
+  jobPostingUrl: string;
+  companyPageUrl: string;
+  companyLinkedInUrl: string;
+  extraUrls: string | null;
   status: ApiStatus;
   /** 'YYYY-MM-DD'. NOT NULL on the column — every job has one from creation. */
   dateApplied: string;
@@ -92,12 +91,54 @@ export interface ApiJobDetailPatch {
   status?: ApiStatus;
   dateApplied?: string;
   dateLastContacted?: string;
-  jobPostingURL?: string;
-  companyPage?: string;
+  jobPostingUrl?: string;
+  companyPageUrl?: string;
   /** company_research.summary. */
   notes?: string;
   outreachMessage?: string;
   followupMessage?: string;
   /** The complete set of checked chips; [] unchecks everything. */
   includedKeywords?: string[];
+}
+
+/** Body for `POST /jobs`. Mirrors CreateJobDto. */
+export interface ApiCreateJob {
+  companyName: string;
+  jobPostingUrl: string;
+  companyPageUrl: string;
+  companyLinkedInUrl: string;
+  /**
+   * A single URL — `jobs.extraUrls` is one `@IsUrl()` text column, unlike
+   * ApiCreateCompanyResearch's same-named field, which is a list.
+   */
+  extraUrls?: string;
+  jobDescription?: string;
+}
+
+/** Body for `POST /company-research`. Mirrors CreateCompanyResearchDto. */
+export interface ApiCreateCompanyResearch {
+  jobId: number;
+  companyName: string;
+  jobPostingUrl: string;
+  companyPageUrl: string;
+  companyLinkedInUrl: string;
+  /** One URL per entry; the DTO validates each with `@IsUrl()`. */
+  extraUrls?: string[];
+}
+
+/** Body for `POST /generated-content`. Mirrors CreateGeneratedContentDto. */
+export interface ApiCreateGeneratedContent {
+  jobId: number;
+  /** The job posting *text*, not its URL — Claude can't open a link. */
+  jobPosting: string;
+  companyWebsite: string;
+  companyName?: string;
+}
+
+/** Body for `POST /contacts` — a request to *run* a Hunter lookup. */
+export interface ApiFindContacts {
+  jobId: number;
+  companyPageUrl: string;
+  /** 1–100; each costs a Hunter credit. Omitted, the API uses 10. */
+  limit?: number;
 }

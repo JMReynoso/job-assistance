@@ -8,6 +8,8 @@ import ConfirmCancelJobModal from "./ConfirmCancelJobModal";
 interface JobProgressModalProps {
   companyName: string;
   stages: JobStage[];
+  /** The API's own words for a failed stage, when it gave any. */
+  error?: string | null;
   onCancel: () => void;
   onRetry: () => void;
   onDone: () => void;
@@ -42,7 +44,14 @@ function NodeIcon({ status }: { status: JobStageStatus }) {
   return <span aria-hidden>–</span>;
 }
 
-export default function JobProgressModal({ companyName, stages, onCancel, onRetry, onDone }: JobProgressModalProps) {
+export default function JobProgressModal({
+  companyName,
+  stages,
+  error = null,
+  onCancel,
+  onRetry,
+  onDone,
+}: JobProgressModalProps) {
   const [confirming, setConfirming] = useState(false);
 
   const title = companyName.trim() || "New job";
@@ -141,6 +150,10 @@ export default function JobProgressModal({ companyName, stages, onCancel, onRetr
             )}
             <span aria-live="polite">{statusLine}</span>
           </div>
+
+          {failed && error && (
+            <p className="mt-2 text-[12px] leading-[1.5] text-[#a8503b]">{error}</p>
+          )}
 
           {(complete || failed) && (
             <div className="mt-5 flex justify-end">

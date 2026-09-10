@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import JobAssistanceApp from "@/components/job-assistance/JobAssistanceApp";
 import {
@@ -19,8 +19,22 @@ const RESEARCH_BY_JOB = (jobId: number) =>
   buildApiCompanyResearch({ jobId, summary: `Research notes for job ${jobId}.` });
 
 function renderApp(options: Parameters<typeof mockApi>[0] = {}) {
-  mockApi({ jobs: JOBS, research: RESEARCH_BY_JOB, ...options });
-  return render(<JobAssistanceApp />);
+  const fetchMock = mockApi({ jobs: JOBS, research: RESEARCH_BY_JOB, ...options });
+  return { ...render(<JobAssistanceApp />), fetchMock };
+}
+
+/** Fills every field the setup pipeline requires before "Add to tracker" arms. */
+async function fillAddForm(user: ReturnType<typeof userEvent.setup>, companyName: string) {
+  await user.type(screen.getByPlaceholderText("e.g. Willow & Oak"), companyName);
+  await user.type(screen.getByPlaceholderText("https://…/careers/role"), "https://acme.example/careers/1");
+  await user.type(screen.getByPlaceholderText("https://company.com"), "https://acme.example");
+  await user.type(screen.getByPlaceholderText("https://linkedin.com/company/…"), "https://linkedin.com/company/acme");
+  await user.type(
+    screen.getByPlaceholderText(
+      "Paste the full job posting text here — this is what your resume gets tailored and scored against…",
+    ),
+    "We are looking for a backend engineer…",
+  );
 }
 
 /**
@@ -85,33 +99,32 @@ describe("JobAssistanceApp", () => {
       renderApp();
       await screen.findByText("Willow & Oak");
 
-      jest.useFakeTimers();
-      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
-
-      await user.type(screen.getByPlaceholderText("e.g. Willow & Oak"), "Acme Robotics");
+      const user = userEvent.setup();
+      await fillAddForm(user, "Acme Robotics");
       await user.click(screen.getByRole("button", { name: "Add to tracker" }));
 
       // Adding opens the setup-progress modal…
       expect(screen.getByRole("dialog", { name: /Acme Robotics/ })).toBeInTheDocument();
 
-      // …and drops the row into the tracker table straight away.
-      const newRow = within(trackerTable()).getByText("Acme Robotics").closest("tr")!;
-      expect(within(newRow).getByRole("combobox")).toHaveValue("Interested");
+      // …and drops the row into the tracker table once POST /jobs resolves.
+      const newRow = await within(trackerTable()).findByText("Acme Robotics");
+      expect(newRow.closest("tr")).not.toBeNull();
       expect(screen.getByPlaceholderText("e.g. Willow & Oak")).toHaveValue("");
 
-      jest.useRealTimers();
+      // Let the rest of the (mocked) pipeline finish so nothing is left in flight.
+      await screen.findByRole("button", { name: "Done" });
     });
 
     it("cancels setup from the progress modal, deleting the just-added job", async () => {
-      renderApp();
+      const { fetchMock } = renderApp({ hangOn: "/company-research" });
       await screen.findByText("Willow & Oak");
 
-      jest.useFakeTimers();
-      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
-
-      await user.type(screen.getByPlaceholderText("e.g. Willow & Oak"), "Acme Robotics");
+      const user = userEvent.setup();
+      await fillAddForm(user, "Acme Robotics");
       await user.click(screen.getByRole("button", { name: "Add to tracker" }));
 
+      // Setup parks mid-pipeline — the job is created, research never resolves.
+      await within(trackerTable()).findByText("Acme Robotics");
       const progressModal = screen.getByRole("dialog", { name: /Acme Robotics/ });
       await user.click(within(progressModal).getByRole("button", { name: "Close" }));
 
@@ -121,40 +134,36 @@ describe("JobAssistanceApp", () => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       expect(within(trackerTable()).queryByText("Acme Robotics")).not.toBeInTheDocument();
 
-      jest.useRealTimers();
+      await waitFor(() =>
+        expect(
+          fetchMock.mock.calls.some(
+            ([url, init]) => String(url).endsWith("/jobs/99") && (init as RequestInit | undefined)?.method === "DELETE",
+          ),
+        ).toBe(true),
+      );
     });
 
     it("recovers from a failed stage via retry, then finishes setup", async () => {
-      renderApp();
+      renderApp({ failOn: "/company-research" });
       await screen.findByText("Willow & Oak");
 
-      jest.useFakeTimers();
-      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
-
-      await user.type(screen.getByPlaceholderText("e.g. Willow & Oak"), "Acme Robotics");
+      const user = userEvent.setup();
+      await fillAddForm(user, "Acme Robotics");
       await user.click(screen.getByRole("button", { name: "Add to tracker" }));
 
-      // Run until the (demo) contact-lookup stage fails.
-      act(() => {
-        jest.advanceTimersByTime(6 * 1400);
-      });
       const progressModal = screen.getByRole("dialog", { name: /Acme Robotics/ });
-      expect(within(progressModal).getByText(/Find hiring manager failed/)).toBeInTheDocument();
+      await within(progressModal).findByText(/Company research failed/);
 
-      // Retry re-runs from the failed stage through to completion.
+      // Clear the failure, then retry — it should resume, not restart.
+      mockApi({ jobs: JOBS, research: RESEARCH_BY_JOB });
       await user.click(within(progressModal).getByRole("button", { name: /Try again/ }));
-      act(() => {
-        jest.advanceTimersByTime(3 * 1400);
-      });
 
+      await within(progressModal).findByRole("button", { name: "Done" });
       await user.click(within(progressModal).getByRole("button", { name: "Done" }));
 
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       expect(within(trackerTable()).getByText("Acme Robotics")).toBeInTheDocument();
-
-      jest.useRealTimers();
     });
-
   });
 
   describe("the job list", () => {

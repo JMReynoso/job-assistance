@@ -52,10 +52,10 @@ export class CreateCompanyResearchDto {
     companyLinkedInUrl: string;
 
     /* fronent will have a text area for links.
-    
+
     front end code should be this to convert all links into an array:
 
-    const extraLinks = textareaValue
+    const extraUrls = textareaValue
         .split('\n')
         .map((s) => s.trim())
         .filter(Boolean);
@@ -71,5 +71,5 @@ export class CreateCompanyResearchDto {
     @IsOptional()
     @IsArray()
     @IsUrl({}, { each: true })
-    extraLinks?: string[];
+    extraUrls?: string[];
 }
