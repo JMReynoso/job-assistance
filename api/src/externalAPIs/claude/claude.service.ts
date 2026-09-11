@@ -5,55 +5,38 @@ import {
     ServiceUnavailableException,
 } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
-import { ANTHROPIC_CLIENT } from './anthropic.provider';
+import {
+    AiMatchResult,
+    AiProvider,
+    AiProviderName,
+    AiResumeResult,
+    AiTextResult,
+} from '../ai/ai-provider.interface';
 import {
     COVER_LETTER_SYSTEM,
     FOLLOWUP_SYSTEM,
-    OUTREACH_SYSTEM,
-    MESSAGE_MODEL,
-    MATCH_MODEL,
     JD_MATCH_SYSTEM,
+    OUTREACH_SYSTEM,
     RESUME_REGENERATE_SYSTEM,
-} from './claude.constants';
+} from '../ai/prompts.constants';
+import { extractJsonObject } from '../helper/parseJson';
+import { ANTHROPIC_CLIENT } from './anthropic.provider';
+import { MATCH_MODEL, MESSAGE_MODEL, RESUME_MODEL } from './claude.constants';
 import { costFromUsage } from './claude.pricing';
-
-/** Model used for the resume draft; priced in {@link costFromUsage}. */
-const RESUME_MODEL = 'claude-opus-4-8';
 
 /**
  * The one place that talks to the Claude API. Domain services depend on these
  * methods, never on the Anthropic SDK directly — so param wiring and error mapping
- * live here (the prompts live in claude.constants.ts). Same discipline the
+ * live here (the prompts live in ../ai/prompts.constants.ts). Same discipline the
  * repositories use to hide TypeORM: one seam per external system.
  */
 
 /** Text Claude produced, plus what the call cost. */
-export interface ClaudeTextResult {
-    /** The generated text (the drafted message). */
-    content: string;
-    /** Token usage for the call — for cost tracking. */
-    usage: Anthropic.Message['usage'];
-    /** Estimated USD cost of the call, derived from `usage`. */
-    cost: number;
-}
-
+export type ClaudeTextResult = AiTextResult;
 /** Parsed resume JSON Claude produced, plus what the call cost. */
-export interface ClaudeResumeResult {
-    /** The tailored resume as a structured object (fed to the PDF template). */
-    resume: Record<string, unknown>;
-    /** Token usage for the call — for cost tracking. */
-    usage: Anthropic.Message['usage'];
-    /** Estimated USD cost of the call, derived from `usage`. */
-    cost: number;
-}
-
+export type ClaudeResumeResult = AiResumeResult;
 /** JD match score Claude produced, plus what the call cost. */
-export interface ClaudeMatchResult {
-    matchPercent: number;
-    missingKeywords: string[];
-    usage: Anthropic.Message['usage'];
-    cost: number;
-}
+export type ClaudeMatchResult = AiMatchResult;
 
 // Output ceiling for a drafted message. With the company summary (~3k tokens) as
 // input, 1200 output tokens keeps a single message well under $0.04 even at
@@ -61,12 +44,24 @@ export interface ClaudeMatchResult {
 const MESSAGE_MAX_TOKENS = 1200;
 
 @Injectable()
-export class ClaudeService {
+export class ClaudeService implements AiProvider {
+    readonly name: AiProviderName = 'claude';
+
     private readonly logger = new Logger(ClaudeService.name);
 
     constructor(
-        @Inject(ANTHROPIC_CLIENT) private readonly anthropic: Anthropic,
+        @Inject(ANTHROPIC_CLIENT) private readonly client: Anthropic | null,
     ) {}
+
+    /** The SDK client, or a clear error when no key is configured. */
+    private get anthropic(): Anthropic {
+        if (!this.client) {
+            throw new ServiceUnavailableException(
+                'ANTHROPIC_API_KEY is not set — add a key or switch to the local engine in Settings',
+            );
+        }
+        return this.client;
+    }
 
     /**
      * Drafts a tailored resume from a master resume + job posting. This is an example of
@@ -173,14 +168,7 @@ export class ClaudeService {
                 ],
             });
 
-            const text = response.content
-                .filter(
-                    (block): block is Anthropic.TextBlock =>
-                        block.type === 'text',
-                )
-                .map((block) => block.text)
-                .join('')
-                .trim();
+            const text = this.textOf(response);
 
             const parsed = JSON.parse(text) as {
                 matchPercent: number;
@@ -201,9 +189,7 @@ export class ClaudeService {
             };
         } catch (error) {
             if (error instanceof Anthropic.RateLimitError) {
-                this.logger.warn(
-                    'Anthropic rate limited the JD match request',
-                );
+                this.logger.warn('Anthropic rate limited the JD match request');
                 throw new ServiceUnavailableException(
                     'AI service is busy, please try again shortly',
                 );
@@ -267,37 +253,26 @@ export class ClaudeService {
 
     /**
      * Claude often wraps JSON in a ```json … ``` fence even when asked for raw
-     * JSON, so strip that before parsing. Shared by draftResume and
-     * regenerateResume — both ask for the same resume shape back.
+     * JSON — extractJsonObject strips that (and, for local models, far more).
+     * Shared by draftResume and regenerateResume — both ask for the same
+     * resume shape back.
      */
     private parseResumeJson(
         response: Anthropic.Message,
         logLabel: string,
     ): Record<string, unknown> {
-        const text = response.content
+        return extractJsonObject(this.textOf(response), logLabel);
+    }
+
+    /** The text blocks of a response, glued together — thinking blocks dropped. */
+    private textOf(response: Anthropic.Message): string {
+        return response.content
             .filter(
-                (block): block is Anthropic.TextBlock =>
-                    block.type === 'text',
+                (block): block is Anthropic.TextBlock => block.type === 'text',
             )
             .map((block) => block.text)
             .join('')
             .trim();
-
-        const json = text
-            .replace(/^```(?:json)?\s*/i, '')
-            .replace(/\s*```$/, '')
-            .trim();
-
-        try {
-            return JSON.parse(json) as Record<string, unknown>;
-        } catch {
-            this.logger.error(
-                `${logLabel} returned malformed JSON: ${json.slice(0, 200)}`,
-            );
-            throw new ServiceUnavailableException(
-                'AI service returned malformed data, please try again',
-            );
-        }
     }
 
     /**
@@ -363,14 +338,7 @@ export class ClaudeService {
                 ],
             });
 
-            const content = response.content
-                .filter(
-                    (block): block is Anthropic.TextBlock =>
-                        block.type === 'text',
-                )
-                .map((block) => block.text)
-                .join('')
-                .trim();
+            const content = this.textOf(response);
 
             this.logger.log(
                 `${opts.logLabel} (claude) — in=${response.usage.input_tokens} ` +
@@ -391,5 +359,10 @@ export class ClaudeService {
             }
             throw error;
         }
+    }
+
+    /** Nothing to release: Claude's model runs on Anthropic's hardware, not yours. */
+    release(): Promise<void> {
+        return Promise.resolve();
     }
 }

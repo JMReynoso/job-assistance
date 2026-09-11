@@ -41,7 +41,7 @@ The arrow matters: **`generated_content` can't be created until `company_researc
 | --- | --- | --- | --- | --- |
 | [`Job`](../api/src/entities/jobs/job.entity.ts) | `jobs` | `/jobs` | you (the request) | The company, its URLs, pipeline status, and the applied / last-contacted dates |
 | [`CompanyResearch`](../api/src/entities/companyResearch/entities/company-research.entity.ts) | `company_research` | `/company-research` | Perplexity Sonar | A research summary + its sources |
-| [`GeneratedContent`](../api/src/entities/generatedContent/entities/generated-content.entity.ts) | `generated_content` | `/generated-content` | Claude | Two drafted messages, a tailored resume (PDF + JSON), its JD-match score, and what all of it cost |
+| [`GeneratedContent`](../api/src/entities/generatedContent/entities/generated-content.entity.ts) | `generated_content` | `/generated-content` | Claude / Ollama | Two drafted messages, a tailored resume (PDF + JSON), its JD-match score, and what all of it cost |
 | [`MissingKeyword`](../api/src/entities/generatedContent/entities/missing-keyword.entity.ts) | `missing_keywords` | *(no own routes — reached via `generated-content`)* | Claude (the JD-match call) | Keywords the tailored resume is missing, and whether the user picked them for a regenerate |
 | [`Contact`](../api/src/entities/contacts/entities/contact.entity.ts) | `contacts` | `/contacts` | Hunter.io | People at the company, with emails |
 | [`Example`](../api/src/entities/example/example.entity.ts) | `examples` | *(not mounted)* | seeds only | A copy-me template, not a real feature |
@@ -173,15 +173,16 @@ One row per generation run: both messages, the resume, and the cost of each. See
 | `regenerateUsage` | `jsonb` | yes | Token counts for the **most recent** regenerate call only |
 | `regenerateCost` | `double precision` | yes | USD estimate, **accumulated across every regenerate call** on this row |
 | `regenerateCount` | `integer` | no | How many times this row has been regenerated; default `0` |
+| `provider` | `text` | yes | Which engine wrote the row — `'claude'` or `'ollama'`; `NULL` on rows from before this column existed, which were all Claude |
 | `created_at` / `updated_at` | `TIMESTAMP` | no | |
 
-Every content column is nullable so a partial run can still be recorded. **`*Cost` and `*Usage` disagree on purpose for the JD-match/regenerate pair:** cost is a running total across every call on the row, usage is only the latest call's raw counts — so unlike the message/resume columns, you can't re-derive the full cost history from the stored usage alone.
+Every content column is nullable so a partial run can still be recorded. **`*Cost` and `*Usage` disagree on purpose for the JD-match/regenerate pair:** cost is a running total across every call on the row, usage is only the latest call's raw counts — so unlike the message/resume columns, you can't re-derive the full cost history from the stored usage alone. **Every `*Usage` column is Claude-only**, too — an Ollama-generated row leaves all five `NULL` and every `*Cost` at `0`, because the call genuinely cost nothing rather than going unrecorded. `provider` is what tells the two apart; see [ollama-api.md](ollama-api.md).
 
 ### Endpoints
 
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |
-| `POST` | `/generated-content` | `CreateGeneratedContentDto` | `201` — the created row (**four Claude calls + a PDF render; slowest endpoint in the app**) |
+| `POST` | `/generated-content` | `CreateGeneratedContentDto` | `201` — the created row (**four AI calls — Claude or the free local Ollama engine — + a PDF render; slowest endpoint in the app**) |
 | `GET` | `/generated-content` | — | `200` — all rows |
 | `GET` | `/generated-content/by-job/:jobId` | — | `200` — the newest run for the job **plus its missing keywords**, or `null` |
 | `GET` | `/generated-content/:id` | — | `200` · `404` |
@@ -189,7 +190,7 @@ Every content column is nullable so a partial run can still be recorded. **`*Cos
 | `POST` | `/generated-content/regenerate` | `RegenerateTailoredResumeDto` | `201` — the same row, rewritten and re-scored |
 | `DELETE` | `/generated-content/:id` | — | `204` · `404` — **cascades to `missing_keywords`** |
 
-**`CreateGeneratedContentDto`** — `jobId`, `jobPosting` (the posting text, not a URL), `companyWebsite` required; `companyName` optional (falls back to the `Job` record). `jobPosting` is now a fallback: if the job has a stored `jobDescription`, that's what gets tailored and scored against.
+**`CreateGeneratedContentDto`** — `jobId`, `jobPosting` (the posting text, not a URL), `companyWebsite` required; `companyName`, `provider` optional (`companyName` falls back to the `Job` record; `provider` falls back to `AI_PROVIDER`). `jobPosting` is now a fallback: if the job has a stored `jobDescription`, that's what gets tailored and scored against.
 
 **`RegenerateTailoredResumeDto`** — `jobId` (positive int), `keywords` (`string[]`, the missing keywords the user checked) required. Looks up the newest `generated_content` row for the job and updates it in place — it is not a new row.
 
@@ -198,15 +199,15 @@ Every content column is nullable so a partial run can still be recorded. **`*Cos
 `GeneratedContentService.create()` is the most involved path in the app:
 
 1. Read the master CV from `api/src/CV/resume.json` as raw text.
-2. Resolve the company name and job description — request, else the `Job` record. (`draftResume` can't open a URL, so a job with no stored `jobDescription` falling back to a posting *link* means the resume is tailored against nothing meaningful — see [claude-api.md](claude-api.md).)
+2. Resolve the company name and job description — request, else the `Job` record. (No engine can open a URL, so a job with no stored `jobDescription` falling back to a posting *link* means the resume is tailored against nothing meaningful — see [claude-api.md](claude-api.md).)
 3. Load the **latest** `company_research` for the job → **`404` if there is none**.
-4. Four Claude calls: outreach, follow-up, tailored resume, then a JD-match score of that resume against the job description.
+4. Resolve the engine once for the whole run — the request's `provider`, else `AI_PROVIDER` (see [`AiProviderRegistry`](../api/src/externalAPIs/ai/ai-provider.registry.ts)) — then four calls against it: outreach, follow-up, tailored resume, then a JD-match score of that resume against the job description.
 5. Render the resume JSON → PDF **and JSON** (Handlebars + Puppeteer), keeping both file names.
-6. One `repository.create()` with all of it, costs included, then `missing_keywords` rows are written for every keyword the score call returned.
+6. One `repository.create()` with all of it, costs included and `provider` recorded, then `missing_keywords` rows are written for every keyword the score call returned. A `finally` releases the engine's resources (a no-op on Claude; unloads the model from RAM on Ollama) whether or not the run succeeded.
 
 **A job can have many rows.** Nothing stops a second `POST` for the same `jobId`; you get another row, and the older ones stay as history.
 
-**`GeneratedContentService.regenerate()`** is the other write path: it takes the newest row's `tailoredResumeJson`, rewrites it with Claude to work in the checked keywords, re-renders the PDF+JSON, re-scores the match, and updates that **same row** — `regenerateCount` increments and `jdMatchCost`/`regenerateCost` accumulate rather than reset. The two drafted messages are left untouched. The keyword list itself isn't replaced by a regenerate; only each row's `include` flag changes, via `PATCH`-like semantics inside the service (there's no public endpoint for that — it's driven entirely by what `regenerate` is called with).
+**`GeneratedContentService.regenerate()`** is the other write path: it takes the newest row's `tailoredResumeJson`, rewrites it with the request's AI engine (else `AI_PROVIDER`) to work in the checked keywords, re-renders the PDF+JSON, re-scores the match, and updates that **same row** — `regenerateCount` and `provider` update and `jdMatchCost`/`regenerateCost` accumulate rather than reset. The two drafted messages are left untouched. The keyword list itself isn't replaced by a regenerate; only each row's `include` flag changes, via `PATCH`-like semantics inside the service (there's no public endpoint for that — it's driven entirely by what `regenerate` is called with).
 
 ---
 
@@ -314,11 +315,11 @@ A dummy entity kept as a copy-me reference for the folder shape (entity / dto / 
 | `GET` | `/company-research/:id` | `200` | |
 | `DELETE` | `/company-research/:id` | `204` | |
 | `GET` | `/generated-content` | `200` | |
-| `POST` | `/generated-content` | `201` | Calls Claude ×4 (messages, resume, JD-match score) + renders a PDF |
+| `POST` | `/generated-content` | `201` | Calls the AI engine ×4 — Claude or Ollama (messages, resume, JD-match score) — + renders a PDF |
 | `GET` | `/generated-content/by-job/:jobId` | `200` | Newest run + its missing keywords, or `null` |
 | `GET` | `/generated-content/:id` | `200` | |
 | `PATCH` | `/generated-content/:id` | `200` | See gap below |
-| `POST` | `/generated-content/regenerate` | `201` | Calls Claude ×2 (rewrite, re-score); updates the row in place |
+| `POST` | `/generated-content/regenerate` | `201` | Calls the AI engine ×2 (rewrite, re-score); updates the row in place |
 | `DELETE` | `/generated-content/:id` | `204` | Cascades to `missing_keywords` |
 | `GET` | `/contacts` | `200` | |
 | `POST` | `/contacts` | `201` | Calls Hunter; returns an array |
@@ -354,7 +355,7 @@ AppModule
 ├── CompanyResearchModule         → /company-research
 │   └── PerplexityModule
 ├── GeneratedContentModule        → /generated-content
-│   ├── ClaudeModule
+│   ├── AiModule (→ ClaudeModule + OllamaModule, behind AiProviderRegistry)
 │   ├── CompanyResearchModule (reused)
 │   ├── ResumePdfModule
 │   └── JobsModule (reused)
@@ -370,7 +371,7 @@ AppModule
 
 `JobDetailModule` owns no entity and no `TypeOrmModule.forFeature` — it only composes the four modules above so `JobDetailService` can orchestrate a save across `jobs`, `company_research`, `generated_content`, and read `contacts`, without a circular import: `GeneratedContentModule` already imports `JobsModule`, so `JobsModule` importing back into a `GeneratedContentModule`-touching orchestrator would need `forwardRef()` on both sides. Sitting `JobDetailModule` above all four avoids that entirely.
 
-The three external-API modules are deliberately **not** app-wide: each needs its API key the moment it loads, so the app can boot without keys until a feature actually uses one.
+Perplexity and Hunter are deliberately **not** app-wide: each needs its API key the moment it loads, so the app can boot without those keys until a feature actually uses one. Claude no longer needs the same treatment — `ClaudeModule` (via `AiModule`) loads unconditionally now, because `anthropic.provider.ts` returns `null` instead of throwing when `ANTHROPIC_API_KEY` is absent, and `ClaudeService` only raises a clear error on first *use*. That's what lets an Ollama-only setup boot with no Anthropic key at all — see [ollama-api.md](ollama-api.md).
 
 ---
 

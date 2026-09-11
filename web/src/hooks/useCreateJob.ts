@@ -20,7 +20,7 @@ import {
   toCreateJob,
   toFindContacts,
 } from "@/lib/api/mappers";
-import type { ApiJob } from "@/lib/api/types";
+import type { ApiAiProvider, ApiJob } from "@/lib/api/types";
 import type { HomeFormState, JobStage } from "@/lib/job-assistance/types";
 import { JOB_STAGE_KEYS, initialStages } from "@/lib/job-assistance/job-progress";
 
@@ -65,11 +65,15 @@ export function useCreateJob({ onCreated, onFinished, onDiscarded }: CreateJobCa
   const [stages, setStages] = useState<JobStage[]>([]);
   const [companyName, setCompanyName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [provider, setProvider] = useState<ApiAiProvider>("ollama");
 
   const stagesRef = useRef<JobStage[]>([]);
   const formRef = useRef<HomeFormState | null>(null);
   const createdRef = useRef<CreatedRows>(nothingCreated());
   const controllerRef = useRef<AbortController | null>(null);
+  // Snapshotted alongside the form: the loop reads it mid-run, after the
+  // settings window could have changed it out from under the run.
+  const providerRef = useRef<ApiAiProvider>("ollama");
   // Bumped by start()/retry()/cancel()/reset(). A step whose id no longer
   // matches was superseded and must neither touch state nor keep walking.
   const runId = useRef(0);
@@ -102,7 +106,10 @@ export function useCreateJob({ onCreated, onFinished, onDiscarded }: CreateJobCa
         return;
       }
       case "tailoring": {
-        const content = await createGeneratedContent(toCreateGeneratedContent(jobId, home), signal);
+        const content = await createGeneratedContent(
+          toCreateGeneratedContent(jobId, home, providerRef.current),
+          signal,
+        );
         createdRef.current = { ...createdRef.current, contentId: content.id };
         return;
       }
@@ -123,8 +130,8 @@ export function useCreateJob({ onCreated, onFinished, onDiscarded }: CreateJobCa
   /**
    * Walks the pipeline from `fromIndex` to the end, stopping at the first
    * failure. Retrying re-enters here at the failed stage rather than at 0 —
-   * re-running a stage that already succeeded means paying Perplexity or
-   * Claude for it twice.
+   * re-running a stage that already succeeded means paying Perplexity,
+   * Claude, or minutes of local generation for it twice.
    */
   async function runFrom(fromIndex: number, id: number) {
     const home = formRef.current;
@@ -153,7 +160,7 @@ export function useCreateJob({ onCreated, onFinished, onDiscarded }: CreateJobCa
     }
   }
 
-  function start(home: HomeFormState) {
+  function start(home: HomeFormState, chosen: ApiAiProvider) {
     const id = ++runId.current;
     const base = initialStages();
     stagesRef.current = base;
@@ -163,6 +170,8 @@ export function useCreateJob({ onCreated, onFinished, onDiscarded }: CreateJobCa
     formRef.current = home;
     createdRef.current = nothingCreated();
     setCompanyName(home.companyName.trim());
+    setProvider(chosen);
+    providerRef.current = chosen;
     setError(null);
     void runFrom(0, id);
   }
@@ -220,5 +229,5 @@ export function useCreateJob({ onCreated, onFinished, onDiscarded }: CreateJobCa
   // mid-run — at which point the response has nowhere to land.
   useEffect(() => abortRun, []);
 
-  return { stages, active: stages.length > 0, companyName, error, start, retry, cancel, reset };
+  return { stages, active: stages.length > 0, companyName, error, provider, start, retry, cancel, reset };
 }

@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { formatDateTime } from "@/lib/job-assistance/date";
 
-export default function NavBar() {
+interface NavBarProps {
+  onOpenSettings: () => void;
+}
+
+export default function NavBar({ onOpenSettings }: NavBarProps) {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -17,8 +21,19 @@ export default function NavBar() {
         <div className="h-[22px] w-[22px] rounded-[7px] bg-sage" />
         <div className="font-heading text-[20px] font-semibold tracking-[0.01em] text-ink">job assistance</div>
       </div>
-      <div className="text-[14px] font-semibold tracking-[0.01em] text-muted" suppressHydrationWarning>
-        {formatDateTime(now)}
+      <div className="flex items-center gap-4">
+        <div className="text-[14px] font-semibold tracking-[0.01em] text-muted" suppressHydrationWarning>
+          {formatDateTime(now)}
+        </div>
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          aria-label="Settings"
+          title="Settings"
+          className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] bg-[#efe9db] text-[16px] leading-none text-muted-2 hover:bg-[#e6dfce]"
+        >
+          <span aria-hidden>⚙</span>
+        </button>
       </div>
     </div>
   );

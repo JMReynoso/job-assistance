@@ -1,5 +1,6 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "./client";
 import type {
+  ApiAiProvider,
   ApiCompanyResearch,
   ApiContact,
   ApiCreateCompanyResearch,
@@ -57,9 +58,16 @@ export async function fetchJobDetail(jobId: number): Promise<JobDetail> {
 export function regenerateTailoredResume(
   jobId: number,
   keywords: string[],
+  provider: ApiAiProvider | null,
   signal?: AbortSignal,
 ): Promise<ApiGeneratedContent> {
-  return apiPost<ApiGeneratedContent>("/generated-content/regenerate", { jobId, keywords }, signal);
+  return apiPost<ApiGeneratedContent>(
+    "/generated-content/regenerate",
+    // null means the row predates the provider column — let the server apply
+    // its own default rather than asserting an engine we don't actually know.
+    { jobId, keywords, ...(provider ? { provider } : {}) },
+    signal,
+  );
 }
 
 /**
@@ -93,9 +101,10 @@ export function createCompanyResearch(
 }
 
 /**
- * Four Claude calls and a PDF render — the slowest endpoint in the app. 404s
- * unless the job already has a company_research row, which is why the caller
- * must await createCompanyResearch first.
+ * Four AI calls and a PDF render — the slowest endpoint in the app, and far
+ * slower still on the local engine. 404s unless the job already has a
+ * company_research row, which is why the caller must await
+ * createCompanyResearch first.
  */
 export function createGeneratedContent(
   body: ApiCreateGeneratedContent,
