@@ -81,6 +81,7 @@ export function buildApiGeneratedContent(
     followupMessage: "Just checking in...",
     tailoredResume: "Jane_Doe_Willow_Oak_1.pdf",
     jdMatchPercent: 72,
+    provider: "claude",
     missingKeywords: [buildApiMissingKeyword()],
     createdAt: "2026-07-03T10:00:00.000Z",
     updatedAt: "2026-07-03T10:00:00.000Z",

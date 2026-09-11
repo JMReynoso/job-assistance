@@ -387,11 +387,12 @@ describe("toCreateGeneratedContent", () => {
       jobDescription: "We are looking for...",
     });
 
-    expect(toCreateGeneratedContent(7, home)).toEqual({
+    expect(toCreateGeneratedContent(7, home, "ollama")).toEqual({
       jobId: 7,
       jobPosting: "We are looking for...",
       companyWebsite: "https://acme.example",
       companyName: "Acme Robotics",
+      provider: "ollama",
     });
   });
 });

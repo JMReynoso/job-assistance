@@ -14,12 +14,16 @@ Five stages, run one after another, each a real API call:
 ```
  1. created    POST /jobs                    → the jobs row; every later call needs its id
  2. research   POST /company-research        → 2 live Perplexity searches
- 3. tailoring  POST /generated-content        → 4 Claude calls + a PDF render
+ 3. tailoring  POST /generated-content        → 4 Claude or Ollama calls + a PDF render
  4. contact    POST /contacts                 → 1 Hunter.io domain search
  5. ready      GET ×4 (fetchJobDetail)        → no write — folds the finished job onto its tracker row
 ```
 
 The progress modal beside the form renders one stepper node per stage. Unlike the modal's earlier prototype, every node's status now comes straight from a real response: a stage flips to `done` the moment its call returns 200/201, not on a timer.
+
+## Which engine tailors the resume
+
+Stage 3 can run on **Claude** (paid, faster, higher quality) or **Ollama** (free, local, slower) — a per-device preference set in the Settings window (the gear icon, top right of the nav bar), defaulting to the free local engine. `handleAddJob` in [JobAssistanceApp.tsx](../web/src/components/job-assistance/JobAssistanceApp.tsx) reads the current setting and passes it into `useCreateJob.start()`, which threads it through to `POST /generated-content` as `provider`. The row records which engine actually wrote it (`generated_content.provider`), and a resume regenerated later reuses that same engine by default — see [ollama-api.md](ollama-api.md) and [claude-api.md](claude-api.md) for the two engines themselves.
 
 ## Why the chain is sequential
 
@@ -55,7 +59,7 @@ The quick-add form's "Extra links" textarea is one URL per line, split by `split
 
 `missingAddFields()` requires five fields before the button arms: company name, job posting link, company page, company LinkedIn, and job description.
 
-The first four are `CreateJobDto`'s own required fields. The job description isn't required by the API at all — `POST /generated-content` will run without one, falling back to whatever's in `jobPostingUrl` — but that fallback is a URL, and Claude has no way to open a link. Requiring the description on the client means the four Claude calls in the `tailoring` stage tailor a resume against real posting text instead of nothing, and the JD-match score means something.
+The first four are `CreateJobDto`'s own required fields. The job description isn't required by the API at all — `POST /generated-content` will run without one, falling back to whatever's in `jobPostingUrl` — but that fallback is a URL, and no engine has a way to open a link. Requiring the description on the client means the four AI calls in the `tailoring` stage tailor a resume against real posting text instead of nothing, and the JD-match score means something.
 
 Blankness is the only check performed. The API validates URLs with `@IsUrl()`, which accepts a bare `acme.com`, so a stricter client-side pattern would reject inputs the server is happy with.
 
@@ -76,5 +80,5 @@ Cancelling aborts the browser's in-flight request, but that doesn't reach the se
 ## What still isn't wired
 
 - **No server-side cancellation.** Aborting only stops the browser from waiting on the response; the API keeps working and keeps writing.
-- **No progress within a stage.** The stepper reports whole stages, not partial work — `tailoring` can sit at "In progress" for minutes while four Claude calls and a PDF render happen behind one node.
+- **No progress within a stage.** The stepper reports whole stages, not partial work — `tailoring` can sit at "In progress" for minutes while four AI calls and a PDF render happen behind one node. On the local engine this is worse: four sequential Ollama generations plus a possible cold model load can run well past ten minutes, with nothing but the modal's engine label to explain why. See [ollama-api.md §9](ollama-api.md#9-speed-what-to-expect) for what drives that and the levers to shorten it.
 - **`jobs.extraUrls` still holds only a single link**, per the naming trap above. Multiple extra links only ever reach `company_research.urls`.

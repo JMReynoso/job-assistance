@@ -10,6 +10,9 @@
  * frontend has no use for them, and listing them invites someone to render them.
  */
 
+/** Which engine generated a row. Mirrors the API's AiProviderName. */
+export type ApiAiProvider = "claude" | "ollama";
+
 export type ApiStatus =
   | "not_applied"
   | "applied"
@@ -76,6 +79,8 @@ export interface ApiGeneratedContent {
   tailoredResume: string | null;
   /** 0-100, or null when the resume hasn't been scored yet. */
   jdMatchPercent: number | null;
+  /** Which engine wrote this row. null on rows that predate the local engine. */
+  provider: ApiAiProvider | null;
   missingKeywords: ApiMissingKeyword[];
   createdAt: string;
   updatedAt: string;
@@ -129,10 +134,12 @@ export interface ApiCreateCompanyResearch {
 /** Body for `POST /generated-content`. Mirrors CreateGeneratedContentDto. */
 export interface ApiCreateGeneratedContent {
   jobId: number;
-  /** The job posting *text*, not its URL — Claude can't open a link. */
+  /** The job posting *text*, not its URL — no engine can open a link. */
   jobPosting: string;
   companyWebsite: string;
   companyName?: string;
+  /** Omitted, the API uses its AI_PROVIDER default. */
+  provider?: ApiAiProvider;
 }
 
 /** Body for `POST /contacts` — a request to *run* a Hunter lookup. */

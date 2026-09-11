@@ -20,7 +20,7 @@ const FIELDS: { key: keyof HomeFormState; label: string; placeholder: string }[]
 
 export default function AddJobForm({ home, onFieldChange, onAdd }: AddJobFormProps) {
   // The pipeline can't start half-filled: three of these are required by the
-  // API, and a blank job description would have Claude tailor a resume
+  // API, and a blank job description would have the engine tailor a resume
   // against nothing.
   const missing = missingAddFields(home);
   const ready = missing.length === 0;

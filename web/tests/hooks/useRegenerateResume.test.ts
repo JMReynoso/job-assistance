@@ -35,7 +35,7 @@ describe("useRegenerateResume", () => {
     const { result } = renderHook(() => useRegenerateResume(onSuccess));
 
     act(() => {
-      result.current.start(1, ["Kubernetes"]);
+      result.current.start(1, ["Kubernetes"], null);
     });
     expect(result.current.stages.map((s) => s.status)).toEqual(["pending", "pending", "pending", "pending"]);
 
@@ -67,7 +67,7 @@ describe("useRegenerateResume", () => {
     const { result } = renderHook(() => useRegenerateResume(jest.fn()));
 
     act(() => {
-      result.current.start(1, ["Kubernetes"]);
+      result.current.start(1, ["Kubernetes"], null);
     });
     act(() => {
       jest.advanceTimersByTime(150); // stage 0 now "running"
@@ -91,7 +91,7 @@ describe("useRegenerateResume", () => {
     const { result } = renderHook(() => useRegenerateResume(jest.fn()));
 
     act(() => {
-      result.current.start(1, ["Kubernetes"]);
+      result.current.start(1, ["Kubernetes"], null);
     });
     act(() => {
       jest.advanceTimersByTime(150);
@@ -119,7 +119,7 @@ describe("useRegenerateResume", () => {
     const { result } = renderHook(() => useRegenerateResume(jest.fn()));
 
     await act(async () => {
-      result.current.start(7, ["Kubernetes", "gRPC"]);
+      result.current.start(7, ["Kubernetes", "gRPC"], null);
       jest.advanceTimersByTime(4450);
       await flushMicrotasks();
     });

@@ -1,6 +1,7 @@
 import type { HomeFormState, Job, JobContact, JobStatus } from "@/lib/job-assistance/types";
 import type { JobDetail } from "./jobs";
 import type {
+  ApiAiProvider,
   ApiContact,
   ApiCreateCompanyResearch,
   ApiCreateGeneratedContent,
@@ -91,6 +92,7 @@ export function mapJob(api: ApiJob): Job {
     recruiterMessage: "",
     followupMessage: "",
     jdMatchPercent: null,
+    provider: null,
     missingKeywords: [],
   };
 }
@@ -107,6 +109,7 @@ export function mergeJobDetail(detail: JobDetail): Job {
     // branch and never binds to a controlled input, so the usual ?? "" rule
     // doesn't apply here.
     jdMatchPercent: detail.content?.jdMatchPercent ?? null,
+    provider: detail.content?.provider ?? null,
     missingKeywords: (detail.content?.missingKeywords ?? []).map((k) => ({
       keyword: k.keyword,
       include: k.include,
@@ -204,7 +207,11 @@ export function toCreateCompanyResearch(jobId: number, home: HomeFormState): Api
   return body;
 }
 
-export function toCreateGeneratedContent(jobId: number, home: HomeFormState): ApiCreateGeneratedContent {
+export function toCreateGeneratedContent(
+  jobId: number,
+  home: HomeFormState,
+  provider: ApiAiProvider,
+): ApiCreateGeneratedContent {
   return {
     jobId,
     // The posting *text*. The API prefers the stored jobs.jobDescription and
@@ -212,6 +219,7 @@ export function toCreateGeneratedContent(jobId: number, home: HomeFormState): Ap
     jobPosting: home.jobDescription,
     companyWebsite: home.companyPage.trim(),
     companyName: home.companyName.trim(),
+    provider,
   };
 }
 

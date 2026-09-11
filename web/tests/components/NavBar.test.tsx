@@ -13,14 +13,14 @@ describe("NavBar", () => {
   });
 
   it("shows the title and the current date and time", () => {
-    render(<NavBar />);
+    render(<NavBar onOpenSettings={jest.fn()} />);
 
     expect(screen.getByText("job assistance")).toBeInTheDocument();
     expect(screen.getByText(formatDateTime(FROZEN_NOW))).toBeInTheDocument();
   });
 
   it("ticks the clock forward every second", () => {
-    render(<NavBar />);
+    render(<NavBar onOpenSettings={jest.fn()} />);
 
     // Modern fake timers advance Date along with the timer queue, so a
     // single advanceTimersByTime moves both the interval and "now" together.
