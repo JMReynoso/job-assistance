@@ -1,8 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { CompanyResearch } from '../companyResearch/entities/company-research.entity';
 import { Contact } from '../contacts/entities/contact.entity';
-import { GeneratedContent } from '../generatedContent/entities/generated-content.entity';
-import { MissingKeyword } from '../generatedContent/entities/missing-keyword.entity';
+import { GeneratedContentWithKeywordsResponse } from '../generatedContent/generated-content-with-keywords.response';
 import { Job } from '../jobs/job.entity';
 
 /**
@@ -20,6 +19,6 @@ export class JobDetailResponse {
     @ApiProperty({ type: CompanyResearch, nullable: true })
     research: CompanyResearch | null;
 
-    @ApiProperty({ type: GeneratedContent, nullable: true })
-    content: (GeneratedContent & { missingKeywords: MissingKeyword[] }) | null;
+    @ApiProperty({ type: GeneratedContentWithKeywordsResponse, nullable: true })
+    content: GeneratedContentWithKeywordsResponse | null;
 }

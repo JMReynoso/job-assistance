@@ -16,6 +16,7 @@ import { CreateGeneratedContentDto } from './dto/create-generated-content.dto';
 import { RegenerateTailoredResumeDto } from './dto/regenerate-tailored-resume.dto';
 import { UpdateGeneratedContentDto } from './dto/update-generated-content.dto';
 import { GeneratedContent } from './entities/generated-content.entity';
+import { GeneratedContentWithKeywordsResponse } from './generated-content-with-keywords.response';
 
 @ApiTags('generated-content')
 @Controller('generated-content')
@@ -60,7 +61,7 @@ export class GeneratedContentController {
     @ApiResponse({
         status: 200,
         description: "The job's latest generated content, or null.",
-        type: GeneratedContent,
+        type: GeneratedContentWithKeywordsResponse,
     })
     findByJob(@Param('jobId', ParseIntPipe) jobId: number) {
         return this.generatedContentService.findByJobIdWithKeywords(jobId);
