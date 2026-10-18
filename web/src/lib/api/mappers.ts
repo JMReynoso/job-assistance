@@ -1,5 +1,4 @@
 import type { HomeFormState, Job, JobContact, JobStatus } from "@/lib/job-assistance/types";
-import type { JobDetail } from "./jobs";
 import type {
   ApiAiProvider,
   ApiContact,
@@ -8,6 +7,7 @@ import type {
   ApiCreateJob,
   ApiFindContacts,
   ApiJob,
+  ApiJobDetail,
   ApiJobDetailPatch,
   ApiStatus,
 } from "./types";
@@ -98,7 +98,7 @@ export function mapJob(api: ApiJob): Job {
 }
 
 /** Folds the three by-job reads onto the job they belong to. */
-export function mergeJobDetail(detail: JobDetail): Job {
+export function mergeJobDetail(detail: ApiJobDetail): Job {
   return {
     ...mapJob(detail.job),
     contacts: detail.contacts.map(mapContact),

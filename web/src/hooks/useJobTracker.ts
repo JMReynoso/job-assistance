@@ -3,10 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { HomeFormState, Job, JobKeyword, JobStatus } from "@/lib/job-assistance/types";
 import { WARN_ON_CLOSE } from "@/lib/job-assistance/constants";
-import type { JobDetail } from "@/lib/api/jobs";
 import { fetchJobDetail, fetchJobs, updateJobDetail } from "@/lib/api/jobs";
 import { mapJob, mergeJobDetail, toJobDetailPatch, toJobId } from "@/lib/api/mappers";
-import type { ApiJob } from "@/lib/api/types";
+import type { ApiJob, ApiJobDetail } from "@/lib/api/types";
 
 const EMPTY_HOME_FORM: HomeFormState = {
   companyName: "",
@@ -91,7 +90,7 @@ export function useJobTracker() {
    * holds the research, messages and match score straight away instead of
    * only once the detail window is opened.
    */
-  function applyJobDetail(detail: JobDetail) {
+  function applyJobDetail(detail: ApiJobDetail) {
     const merged = mergeJobDetail(detail);
     setJobs((prev) => prev.map((j) => (j.id === merged.id ? merged : j)));
   }

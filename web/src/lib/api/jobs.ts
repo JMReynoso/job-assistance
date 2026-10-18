@@ -9,18 +9,9 @@ import type {
   ApiFindContacts,
   ApiGeneratedContent,
   ApiJob,
+  ApiJobDetail,
   ApiJobDetailPatch,
 } from "./types";
-
-/** Everything the detail modal needs for one job, as the API returns it. */
-export interface JobDetail {
-  job: ApiJob;
-  contacts: ApiContact[];
-  /** null when the job has never been researched. */
-  research: ApiCompanyResearch | null;
-  /** null when nothing has been generated for the job yet. */
-  content: ApiGeneratedContent | null;
-}
 
 export function fetchJobs(): Promise<ApiJob[]> {
   return apiGet<ApiJob[]>("/jobs");
@@ -39,7 +30,7 @@ export function fetchJobs(): Promise<ApiJob[]> {
  * redundant round-trip, kept because it's free (parallel) and means the modal
  * shows the truth even if the list is stale.
  */
-export async function fetchJobDetail(jobId: number): Promise<JobDetail> {
+export async function fetchJobDetail(jobId: number): Promise<ApiJobDetail> {
   const [job, contacts, research, content] = await Promise.all([
     apiGet<ApiJob>(`/jobs/${jobId}`),
     apiGet<ApiContact[]>(`/contacts/by-job/${jobId}`),
@@ -71,15 +62,15 @@ export function regenerateTailoredResume(
 }
 
 /**
- * Saves the job detail window in one call. The response is a full JobDetail
+ * Saves the job detail window in one call. The response is a full ApiJobDetail
  * — the same four pieces fetchJobDetail returns — so the caller can feed it
  * straight to mergeJobDetail and show server truth rather than its own draft.
  */
 export function updateJobDetail(
   jobId: number,
   patch: ApiJobDetailPatch,
-): Promise<JobDetail> {
-  return apiPatch<JobDetail>(`/jobs/${jobId}/detail`, patch);
+): Promise<ApiJobDetail> {
+  return apiPatch<ApiJobDetail>(`/jobs/${jobId}/detail`, patch);
 }
 
 /**

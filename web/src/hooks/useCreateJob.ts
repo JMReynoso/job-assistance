@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
-import type { JobDetail } from "@/lib/api/jobs";
 import {
   createCompanyResearch,
   createGeneratedContent,
@@ -20,7 +19,7 @@ import {
   toCreateJob,
   toFindContacts,
 } from "@/lib/api/mappers";
-import type { ApiAiProvider, ApiJob } from "@/lib/api/types";
+import type { ApiAiProvider, ApiJob, ApiJobDetail } from "@/lib/api/types";
 import type { HomeFormState, JobStage } from "@/lib/job-assistance/types";
 import { JOB_STAGE_KEYS, initialStages } from "@/lib/job-assistance/job-progress";
 
@@ -28,7 +27,7 @@ interface CreateJobCallbacks {
   /** The `jobs` row exists — put it in the tracker and empty the form. */
   onCreated: (job: ApiJob) => void;
   /** The pipeline finished; a fresh read of all four tables for the new job. */
-  onFinished: (detail: JobDetail) => void;
+  onFinished: (detail: ApiJobDetail) => void;
   /** The run was cancelled and its rows deleted — drop it from the tracker. */
   onDiscarded: (jobId: number) => void;
 }
