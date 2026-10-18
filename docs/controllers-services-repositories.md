@@ -392,7 +392,7 @@ docker compose -f infra/docker-compose.dev.yml exec api npx nest <command>
 | `nest g service entities/job --no-spec` | `job.service.ts` | Adds it to `JobModule`'s `providers` |
 | `nest g resource entities/job` | Module + controller + service + entity + DTOs, all at once | Wires everything (asks you "REST API?" → yes, "generate CRUD?" → yes) |
 
-**`g` is short for `generate`. `--no-spec` skips the auto-generated test file** (this project keeps features spec-free, matching the `example/` folder).
+**`g` is short for `generate`. `--no-spec` skips the auto-generated test file** (the empty stub the CLI writes; this project doesn't keep those, and the `example/` folder has none). Real specs are written by hand — [job-detail.service.spec.ts](../api/src/entities/jobDetail/job-detail.service.spec.ts) is the pattern: Nest's testing module, collaborators supplied as typed `jest.Mocked` mocks through `useValue`.
 
 **Important caveats — the CLI doesn't fully match this project's style:**
 

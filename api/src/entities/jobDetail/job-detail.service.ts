@@ -12,14 +12,13 @@ import { JobDetailResponse } from './job-detail.response';
  *
  * A job in the UI sense is four rows in four tables, so reading it fans in
  * from four services and saving it fans out across three. This sits above
- * them all rather than inside
- * JobsService: GeneratedContentModule already imports JobsModule (for the
- * company-name fallback), so orchestrating from there would be a circular
- * module dependency.
+ * them all rather than inside JobsService: GeneratedContentModule already
+ * imports JobsModule (for the company-name fallback), so orchestrating from
+ * there would be a circular module dependency.
  *
  * Absence is not failure. A job that has never been researched or generated
  * for simply has nowhere to put its Notes or messages, so those parts of the
- * patch are skipped — the same reasoning that makes the by-job reads answer
+ * patch are skipped — the same reasoning that makes the satellite reads answer
  * null instead of 404ing.
  */
 @Injectable()

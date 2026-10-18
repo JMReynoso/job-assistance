@@ -5,9 +5,9 @@ import { GeneratedContentWithKeywordsResponse } from '../generatedContent/genera
 import { Job } from '../jobs/job.entity';
 
 /**
- * One job as the detail window sees it: the four reads it already makes,
- * answered in one response so a save can hand back server truth for every
- * field it just wrote.
+ * One job as the detail window sees it: the job and its satellites in one
+ * response. Both GET (opening a job) and PATCH (saving it) answer with this,
+ * so each hands back server truth for every field.
  */
 export class JobDetailResponse {
     @ApiProperty({ type: Job })
