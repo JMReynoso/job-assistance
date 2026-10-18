@@ -196,16 +196,16 @@ export function mockApi(options: MockApiOptions = {}): jest.Mock {
     const detailMatch = url.match(/\/jobs\/(\d+)\/detail$/);
     if (detailMatch) {
       const jobId = Number(detailMatch[1]);
-      const patch = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
-      const base = jobs.find((j) => j.id === jobId) ?? jobs[0];
-      const res = resolveByJob(research, jobId);
-      const gen = resolveByJob(content, jobId);
-      const { notes, outreachMessage, followupMessage, includedKeywords, ...jobFields } = patch;
 
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
+      // Look the row up by id rather than always answering with jobs[0] —
+      // otherwise opening the second row merges in the first row's company.
+      const detailFor = (patch: Record<string, unknown>) => {
+        const base = jobs.find((j) => j.id === jobId) ?? jobs[0];
+        const res = resolveByJob(research, jobId);
+        const gen = resolveByJob(content, jobId);
+        const { notes, outreachMessage, followupMessage, includedKeywords, ...jobFields } = patch;
+
+        return {
           job: { ...base, ...jobFields },
           contacts: resolveByJob(contacts, jobId),
           research: res && notes !== undefined ? { ...res, summary: notes } : res,
@@ -222,26 +222,16 @@ export function mockApi(options: MockApiOptions = {}): jest.Mock {
                   : k.include,
               })),
             },
-        }),
-      } as Response;
+        };
+      };
+
+      // GET is the open: the fixtures as they stand. PATCH is the save: the
+      // same fixtures with the posted edits applied, as the server echoes them.
+      const detail = method === "PATCH" ? detailFor(sent) : detailFor({});
+      return { ok: true, status: 200, json: async () => detail } as Response;
     }
 
-    // Every by-job route ends in the job id, so one parse serves all three.
-    const jobId = Number(url.slice(url.lastIndexOf("/") + 1));
-
-    const body = (() => {
-      if (url.includes("/contacts/by-job/")) return resolveByJob(contacts, jobId);
-      if (url.includes("/company-research/by-job/")) return resolveByJob(research, jobId);
-      if (url.includes("/generated-content/by-job/")) return resolveByJob(content, jobId);
-      // Order matters: the by-job paths above also contain "/jobs" in the
-      // base URL only, so this is safe as the fallthrough. Look the row up by
-      // id rather than always answering with jobs[0] — otherwise opening the
-      // second row merges in the first row's company.
-      if (url.match(/\/jobs\/\d+$/)) return jobs.find((j) => j.id === jobId) ?? jobs[0];
-      return jobs;
-    })();
-
-    return { ok: true, status: 200, json: async () => body } as Response;
+    return { ok: true, status: 200, json: async () => jobs } as Response;
   });
 
   global.fetch = fetchMock as unknown as typeof fetch;

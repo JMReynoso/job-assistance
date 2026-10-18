@@ -141,7 +141,7 @@ describe("useJobTracker", () => {
   });
 
   describe("opening a job", () => {
-    it("populates the draft from the by-job endpoints", async () => {
+    it("populates the draft from the Job Detail endpoint", async () => {
       const { result } = await renderLoaded({
         contacts: [buildApiContact({ firstName: "Dana", lastName: "Reyes" })],
         research: buildApiCompanyResearch({ summary: "Founded 2011." }),
@@ -211,7 +211,7 @@ describe("useJobTracker", () => {
     });
 
     it("reports an error when the detail fetch fails, and recovers on retry", async () => {
-      const { result } = await renderLoaded({ failOn: "/contacts/by-job/" });
+      const { result } = await renderLoaded({ failOn: "GET /detail" });
 
       await openAndSettle(result, "1");
       expect(result.current.detailStatus).toBe("error");
@@ -233,26 +233,31 @@ describe("useJobTracker", () => {
           ({ ok: true, status: 200, json: async () => body }) as Response;
 
         if (url.endsWith("/jobs")) return respond(JOBS);
-        if (url.includes("/contacts/by-job/")) return respond([]);
-        if (url.includes("/company-research/by-job/")) {
-          const forJobOne = url.endsWith("/1");
-          const summary = forJobOne ? "JOB ONE" : "JOB TWO";
-          if (forJobOne) {
-            // Hold job 1's response open until we release it.
-            return new Promise<Response>((resolve) => {
-              deferred.push(() => resolve(respond(buildApiCompanyResearch({ summary }))));
-            });
-          }
-          return respond(buildApiCompanyResearch({ summary }));
+
+        const detailMatch = url.match(/\/jobs\/(\d+)\/detail$/);
+        if (!detailMatch) throw new Error(`unexpected request: ${url}`);
+
+        const jobId = Number(detailMatch[1]);
+        const forJobOne = jobId === 1;
+        const detail = {
+          job: JOBS.find((j) => j.id === jobId) ?? JOBS[0],
+          contacts: [],
+          research: buildApiCompanyResearch({ summary: forJobOne ? "JOB ONE" : "JOB TWO" }),
+          content: null,
+        };
+        if (forJobOne) {
+          // Hold job 1's Job Detail request open until we release it.
+          return new Promise<Response>((resolve) => {
+            deferred.push(() => resolve(respond(detail)));
+          });
         }
-        if (url.includes("/generated-content/by-job/")) return respond(null);
-        return respond(JOBS.find((j) => url.endsWith(`/${j.id}`)) ?? JOBS[0]);
+        return respond(detail);
       }) as unknown as typeof fetch;
 
       const { result } = renderHook(() => useJobTracker());
       await waitFor(() => expect(result.current.jobs).toHaveLength(3));
 
-      // Open job 1 (its research hangs), then immediately open job 2.
+      // Open job 1 (its Job Detail hangs), then immediately open job 2.
       let openOne: Promise<void>;
       act(() => {
         openOne = result.current.openRow("1");

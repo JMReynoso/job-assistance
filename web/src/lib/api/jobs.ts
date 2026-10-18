@@ -18,27 +18,12 @@ export function fetchJobs(): Promise<ApiJob[]> {
 }
 
 /**
- * All four reads for one job, in parallel.
- *
- * `Promise.all` rather than `allSettled` on purpose: the two resources a new
- * job legitimately lacks come back as `null` from a perfectly successful
- * request, so absence is already handled and anything that rejects here is a
- * real failure worth surfacing as one error with one retry. If these endpoints
- * ever diverge in reliability, `allSettled` is the upgrade path.
- *
- * Re-reading /jobs/:id when the list row already has those fields is one
- * redundant round-trip, kept because it's free (parallel) and means the modal
- * shows the truth even if the list is stale.
+ * The whole Job Detail for one job — the job and its satellites — in one
+ * request. A job that exists but has no satellites yet is a normal 200 (`[]`
+ * and `null`); only a job that doesn't exist rejects, with a 404.
  */
-export async function fetchJobDetail(jobId: number): Promise<ApiJobDetail> {
-  const [job, contacts, research, content] = await Promise.all([
-    apiGet<ApiJob>(`/jobs/${jobId}`),
-    apiGet<ApiContact[]>(`/contacts/by-job/${jobId}`),
-    apiGet<ApiCompanyResearch | null>(`/company-research/by-job/${jobId}`),
-    apiGet<ApiGeneratedContent | null>(`/generated-content/by-job/${jobId}`),
-  ]);
-
-  return { job, contacts, research, content };
+export function fetchJobDetail(jobId: number): Promise<ApiJobDetail> {
+  return apiGet<ApiJobDetail>(`/jobs/${jobId}/detail`);
 }
 
 /**

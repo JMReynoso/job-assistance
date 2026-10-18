@@ -180,7 +180,7 @@ describe("JobAssistanceApp", () => {
   });
 
   describe("the detail window", () => {
-    it("fills the window from the by-job endpoints", async () => {
+    it("fills the window from the Job Detail endpoint", async () => {
       const user = userEvent.setup();
       renderApp({
         contacts: [buildApiContact({ firstName: "Dana", lastName: "Reyes", confidence: 94 })],
@@ -219,7 +219,7 @@ describe("JobAssistanceApp", () => {
 
     it("shows an error strip with a working retry when the detail fetch fails", async () => {
       const user = userEvent.setup();
-      renderApp({ failOn: "/contacts/by-job/" });
+      renderApp({ failOn: "GET /detail" });
 
       const dialog = await openJob(user, "Willow & Oak");
       expect(within(dialog).getByText(/Couldn’t load this job’s details/)).toBeInTheDocument();
