@@ -13,15 +13,17 @@ Claude is an AI model that lives on Anthropic's servers. You can't run it yourse
 Everything you need to do that is already wired up. You mostly just call **one method** and get a result back.
 
 ```
-GeneratedContentService  →  ClaudeService  →  Anthropic SDK  →  Claude (in the cloud)
-         │                        ▲
-         │            this is the only part
-         │            that knows about Claude
-         ▼
-GeneratedContentRepository  →  Postgres (generated_content)
+GeneratedContentService → AiProviderRegistry → ClaudeService → Anthropic SDK → Claude (in the cloud)
+                                  │                    ▲
+                                  │        this is the only part
+                                  │        that knows about Claude
+                                  ▼
+                     GeneratedContentRepository → Postgres (generated_content)
 ```
 
 The important idea: **only [`ClaudeService`](../api/src/externalAPIs/claude/claude.service.ts) knows how to talk to Claude.** The rest of the app just calls it, the same way the rest of the app talks to the database only through repositories.
+
+**Claude isn't the only engine anymore.** [`AiProviderRegistry`](../api/src/externalAPIs/ai/ai-provider.registry.ts) picks between `ClaudeService` and the free, local `OllamaService` per request — `GeneratedContentService` calls whichever one it's handed through the shared [`AiProvider`](../api/src/externalAPIs/ai/ai-provider.interface.ts) interface, without knowing which engine it got. This page still only documents the Claude half; see [ollama-api.md](ollama-api.md) for the free one.
 
 ---
 
@@ -44,15 +46,17 @@ The three external APIs each own one entity: **Perplexity → CompanyResearch**,
 
 | Piece | File | What it is (plain terms) |
 | --- | --- | --- |
-| **API key** | `ANTHROPIC_API_KEY` (env var) | Your password to Anthropic. Every request must include it. Kept out of the code. |
+| **API key** | `ANTHROPIC_API_KEY` (env var) | Your password to Anthropic. Optional now — see the boot note below. Kept out of the code. |
 | **The SDK** | `@anthropic-ai/sdk` (npm package) | A library that does the actual internet calls to Claude, so you don't have to. |
-| **The client provider** | [anthropic.provider.ts](../api/src/externalAPIs/claude/anthropic.provider.ts) | Builds **one** SDK client using your API key, so it's set up in a single place. |
-| **ClaudeService** | [claude.service.ts](../api/src/externalAPIs/claude/claude.service.ts) | Your friendly wrapper. Three methods; this is what you call. |
-| **The prompts** | [claude.constants.ts](../api/src/externalAPIs/claude/claude.constants.ts) | The (long) system prompts and Justin's outreach template, kept out of the service file. |
+| **The client provider** | [anthropic.provider.ts](../api/src/externalAPIs/claude/anthropic.provider.ts) | Builds **one** SDK client using your API key — or `null` when there isn't one. |
+| **ClaudeService** | [claude.service.ts](../api/src/externalAPIs/claude/claude.service.ts) | Your friendly wrapper. Five methods; this is what you call. |
+| **The models** | [claude.constants.ts](../api/src/externalAPIs/claude/claude.constants.ts) | Which Claude model runs which call (`MESSAGE_MODEL`, `RESUME_MODEL`, `MATCH_MODEL`). |
+| **The prompts** | [ai/prompts.constants.ts](../api/src/externalAPIs/ai/prompts.constants.ts) | The (long) system prompts and Justin's outreach template — shared with the local engine, so they live outside the `claude/` folder now. |
+| **The JSON parser** | [helper/parseJson.ts](../api/src/externalAPIs/helper/parseJson.ts) | Pulls a JSON object out of a reply, fence and all — shared with the local engine, which preambles more than Claude does. |
 | **The price list** | [claude.pricing.ts](../api/src/externalAPIs/claude/claude.pricing.ts) | Turns a call's token usage into a USD estimate. |
 | **ClaudeModule** | [claude.module.ts](../api/src/externalAPIs/claude/claude.module.ts) | A NestJS bundle that groups the above so other parts of the app can use `ClaudeService`. |
 
-You'll spend almost all your time in just two of these: **ClaudeService** and **claude.constants.ts**.
+You'll spend almost all your time in just two of these: **ClaudeService** and **ai/prompts.constants.ts**.
 
 ---
 
@@ -74,7 +78,7 @@ You'll spend almost all your time in just two of these: **ClaudeService** and **
    docker compose -f infra/docker-compose.dev.yml restart api
    ```
 
-> **You don't need a key just to run the app.** Claude is only contacted when a feature actually uses it (see the note about `ClaudeModule` at the bottom). So the app boots fine without a key until you start calling Claude.
+> **You don't need a key just to run the app.** `AI_PROVIDER=ollama` is the default, so a fresh clone runs entirely on the free local engine. Even with `AI_PROVIDER=claude`, a missing key doesn't crash the app anymore — `anthropic.provider.ts` returns `null` instead of throwing, and `ClaudeService` only raises a clear error the moment something actually tries to call Claude. Pick the engine per request in the Settings window, or with `AI_PROVIDER` — see [ollama-api.md](ollama-api.md).
 
 ---
 
@@ -164,6 +168,8 @@ outreach.cost;    // estimated USD for this one call
 
 That's it. Your service never imports the Anthropic SDK — it just asks `ClaudeService` for a result.
 
+**In practice, `GeneratedContentModule` doesn't import `ClaudeModule` directly anymore** — it imports [`AiModule`](../api/src/externalAPIs/ai/ai.module.ts) and injects `AiProviderRegistry` instead, so it can hand back either `ClaudeService` or `OllamaService` per request without the feature code caring which. The three steps above are still exactly right for something that only ever wants Claude specifically.
+
 ---
 
 ## From Claude's response to a database row
@@ -204,19 +210,17 @@ const content = response.content
     .trim();
 ```
 
-**For the resume** — same extraction, then two extra steps, because we asked for JSON:
+**For the resume** — same extraction, then a shared helper, because we asked for JSON:
 
 ```ts
-// Claude often wraps JSON in a ```json … ``` fence even when asked for raw JSON.
-const json = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-
-try {
-    return { resume: JSON.parse(json), usage: response.usage, cost: ... };
-} catch {
-    // Logged with the first 200 chars, then surfaced as a clean 503
-    throw new ServiceUnavailableException('AI service returned malformed data, please try again');
-}
+return {
+    resume: extractJsonObject(this.textOf(response), 'draftResume'),
+    usage: response.usage,
+    cost: costFromUsage(RESUME_MODEL, response.usage),
+};
 ```
+
+[`extractJsonObject`](../api/src/externalAPIs/helper/parseJson.ts) — shared with the local engine — strips a leaked `<think>` block, strips a ` ```json ` fence, then scans from the first `{` to its true matching `}` (tracking strings, so a `}` inside a value can't end the scan early) before parsing. Malformed JSON is logged with the first 200 characters, then surfaced as the same clean `503` as before. See [ollama-api.md §4](ollama-api.md#4-how-a-reply-is-parsed) for the full algorithm — Claude rarely needs more than the fence strip, but the helper is written for the local engine's noisier output, and Claude gets the same hardening for free.
 
 **Then the cost** — `usage` is token *counts*, not money. [`costFromUsage(model, usage)`](../api/src/externalAPIs/claude/claude.pricing.ts) turns it into USD by splitting the tokens across the buckets that bill differently:
 
@@ -232,13 +236,15 @@ A model with no entry in the price list yields a cost of `0` rather than throwin
 
 **For the JD-match score** — no parsing at all needed beyond `JSON.parse`, because `output_config.format` constrains the schema server-side; Claude cannot reply with prose or a markdown fence here.
 
-So each method hands back a small, tidy object:
+So each method hands back a small, tidy object — `ClaudeTextResult`/`ClaudeResumeResult`/`ClaudeMatchResult` are now just aliases of the shared [`AiTextResult`/`AiResumeResult`/`AiMatchResult`](../api/src/externalAPIs/ai/ai-provider.interface.ts), so `GeneratedContentService` can accept either engine's result without caring which it got:
 
 ```ts
-interface ClaudeTextResult   { content: string;                                        usage: Anthropic.Message['usage']; cost: number }
-interface ClaudeResumeResult { resume: Record<string, unknown>;                        usage: Anthropic.Message['usage']; cost: number }
-interface ClaudeMatchResult  { matchPercent: number; missingKeywords: string[];        usage: Anthropic.Message['usage']; cost: number }
+interface AiTextResult   { content: string;                                 usage?: ClaudeUsage; cost: number }
+interface AiResumeResult { resume: Record<string, unknown>;                 usage?: ClaudeUsage; cost: number }
+interface AiMatchResult  { matchPercent: number; missingKeywords: string[]; usage?: ClaudeUsage; cost: number }
 ```
+
+`usage` is optional on the shared type, but **Claude always populates it** — every path above returns `response.usage` straight from a real Anthropic reply. It's the local engine that omits it entirely; see [`ClaudeUsage`](../api/src/externalAPIs/claude/claude.types.ts) for why.
 
 ### 3. How it gets stored
 
@@ -262,8 +268,9 @@ Which lands in `generated_content` like this:
 | `tailoredResumeJson` | `jsonb` | the resume JSON itself — **no longer discarded**, this is what `regenerateResume()` reads back in |
 | `tailoredResumeJsonPath` | `text` | the JSON's file name, saved alongside the PDF |
 | `jdMatchPercent` | `integer` | `scoreResumeMatch().matchPercent` |
-| `outreachMessageUsage` / `followupMessageUsage` / `tailoredResumeUsage` / `jdMatchUsage` | `jsonb` | the raw `usage` block from each call |
-| `outreachMessageCost` / `followupMessageCost` / `tailoredResumeCost` | `double precision` | `costFromUsage(...)` for each call |
+| `provider` | `text` | which engine wrote the row — `'claude'` or `'ollama'`; `NULL` on rows from before this column existed (all Claude) |
+| `outreachMessageUsage` / `followupMessageUsage` / `tailoredResumeUsage` / `jdMatchUsage` | `jsonb` | the raw `usage` block from each call — **Claude only**, `NULL` on an Ollama-generated row |
+| `outreachMessageCost` / `followupMessageCost` / `tailoredResumeCost` | `double precision` | `costFromUsage(...)` for each call — always `0` for Ollama |
 | `jdMatchCost` / `regenerateCost` | `double precision` | `costFromUsage(...)`, **accumulated** across every score/regenerate call on the row |
 | `created_at` / `updated_at` | `timestamp` | TypeORM |
 
@@ -410,9 +417,9 @@ Other levers:
 
 ## Good to know / gotchas
 
-- **`ClaudeModule` is deliberately *not* loaded app-wide.** The client needs `ANTHROPIC_API_KEY` the moment the module loads, so if it were always on, the app would crash on startup without a key. Instead you add `imports: [ClaudeModule]` only to the feature modules that use it.
+- **A missing `ANTHROPIC_API_KEY` no longer crashes the app.** `anthropicProvider` returns `null` instead of throwing when the key is absent, and `ClaudeService` only raises a clear `ServiceUnavailableException` the moment something actually calls it — fail-fast moved from boot time to first use. That's what lets `ClaudeModule` (via `AiModule`) load unconditionally now, so an Ollama-only setup can boot with no Anthropic key at all.
 - **The API has no memory.** Each call is independent. The three drafting calls know nothing about each other — they each get the same summary and work alone.
-- **Prompts are shared with Ollama.** [claude.constants.ts](../api/src/externalAPIs/claude/claude.constants.ts) is written to be model-agnostic so the same outreach/follow-up prompts can run locally through `OllamaService` (not implemented yet).
+- **Prompts are shared with Ollama, for real now.** They live in [ai/prompts.constants.ts](../api/src/externalAPIs/ai/prompts.constants.ts) — model-agnostic by design, so `ClaudeService` and `OllamaService` read the exact same outreach/follow-up/resume instructions and only differ in how they enforce the output shape. See [ollama-api.md](ollama-api.md).
 - **`generated_content` stores the resume's JSON, not just its PDF.** `tailoredResumeJson` holds the exact object Handlebars rendered, and `tailoredResumeJsonPath` names a `.json` file saved next to the PDF on the resume-storage volume. This is what makes `regenerateResume()` possible without a full re-tailor. It's stored in both places on purpose: the volume can be wiped independently of Postgres, so the jsonb column is what `regenerate()` actually reads — the file is for inspection and future use, not a dependency.
 - **Long answers should stream.** For big outputs, `this.anthropic.messages.stream({...})` avoids HTTP timeouts. Not needed at our current `max_tokens`; worth remembering if the resume cap ever grows.
 - **Production gets the key differently.** The prod image has no `api/.env`, so the key comes through the container environment instead. [infra/docker-compose.prod.yml](../infra/docker-compose.prod.yml) already declares `ANTHROPIC_API_KEY` — supply its value at deploy time (an exported shell variable or `--env-file`).
@@ -423,11 +430,16 @@ Other levers:
 
 | Path | What it is |
 | --- | --- |
-| [api/src/externalAPIs/claude/anthropic.provider.ts](../api/src/externalAPIs/claude/anthropic.provider.ts) | Builds the Anthropic client from the API key |
+| [api/src/externalAPIs/claude/anthropic.provider.ts](../api/src/externalAPIs/claude/anthropic.provider.ts) | Builds the Anthropic client from the API key — `null` when there isn't one |
 | [api/src/externalAPIs/claude/claude.service.ts](../api/src/externalAPIs/claude/claude.service.ts) | The wrapper you call (`ClaudeService`) — add your methods here |
-| [api/src/externalAPIs/claude/claude.constants.ts](../api/src/externalAPIs/claude/claude.constants.ts) | System prompts, the outreach template, and the model constants (`MESSAGE_MODEL`, `MATCH_MODEL`) |
+| [api/src/externalAPIs/claude/claude.constants.ts](../api/src/externalAPIs/claude/claude.constants.ts) | Just the model constants now (`MESSAGE_MODEL`, `RESUME_MODEL`, `MATCH_MODEL`) |
+| [api/src/externalAPIs/claude/claude.types.ts](../api/src/externalAPIs/claude/claude.types.ts) | `ClaudeUsage` — the Claude-only token-usage type stored on `generated_content` |
 | [api/src/externalAPIs/claude/claude.pricing.ts](../api/src/externalAPIs/claude/claude.pricing.ts) | Per-call USD cost estimation from a `usage` block |
 | [api/src/externalAPIs/claude/claude.module.ts](../api/src/externalAPIs/claude/claude.module.ts) | The NestJS module to import into your feature modules |
+| [api/src/externalAPIs/ai/prompts.constants.ts](../api/src/externalAPIs/ai/prompts.constants.ts) | The system prompts and the outreach template — shared with `OllamaService` |
+| [api/src/externalAPIs/ai/ai-provider.interface.ts](../api/src/externalAPIs/ai/ai-provider.interface.ts) | The `AiProvider` interface both engines implement |
+| [api/src/externalAPIs/ai/ai-provider.registry.ts](../api/src/externalAPIs/ai/ai-provider.registry.ts) | Picks Claude or Ollama per request |
+| [api/src/externalAPIs/helper/parseJson.ts](../api/src/externalAPIs/helper/parseJson.ts) | Shared JSON extraction, used by both engines |
 | [api/src/entities/generatedContent/](../api/src/entities/generatedContent/) | The entity that consumes it — service, repository, entity, PDF renderer |
 | [api/.env](../api/.env) | Your local config, including `ANTHROPIC_API_KEY` (not committed to git) |
 | [api/.env.example](../api/.env.example) | Template listing the env vars the api needs |

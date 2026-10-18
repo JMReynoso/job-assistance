@@ -1,11 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+    IsIn,
     IsInt,
     IsNotEmpty,
     IsOptional,
     IsPositive,
     IsString,
 } from 'class-validator';
+import type { AiProviderName } from '../../../externalAPIs/ai/ai-provider.interface';
 
 export class CreateGeneratedContentDto {
     @ApiProperty({
@@ -41,4 +43,15 @@ export class CreateGeneratedContentDto {
     @IsOptional()
     @IsString()
     companyName?: string;
+
+    @ApiPropertyOptional({
+        example: 'ollama',
+        enum: ['claude', 'ollama'],
+        description:
+            'Which engine to generate with. Omitted, the server uses ' +
+            'AI_PROVIDER, which defaults to the free local one.',
+    })
+    @IsOptional()
+    @IsIn(['claude', 'ollama'])
+    provider?: AiProviderName;
 }

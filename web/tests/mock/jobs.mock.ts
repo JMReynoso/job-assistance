@@ -34,6 +34,7 @@ export function buildJob(overrides: Partial<Job> = {}): Job {
     recruiterMessage: "",
     followupMessage: "",
     jdMatchPercent: null,
+    provider: null,
     missingKeywords: [],
     ...overrides,
   };

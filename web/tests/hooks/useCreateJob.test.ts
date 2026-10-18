@@ -37,7 +37,7 @@ describe("useCreateJob", () => {
     const { result } = renderHook(() => useCreateJob(callbacks));
 
     act(() => {
-      result.current.start(FULL_HOME);
+      result.current.start(FULL_HOME, "ollama");
     });
 
     await waitFor(() => expect(result.current.stages.every((s) => s.status === "done")).toBe(true));
@@ -60,7 +60,7 @@ describe("useCreateJob", () => {
     const { result } = renderHook(() => useCreateJob(noopCallbacks()));
 
     act(() => {
-      result.current.start(FULL_HOME);
+      result.current.start(FULL_HOME, "ollama");
     });
     await waitFor(() => expect(result.current.stages.every((s) => s.status === "done")).toBe(true));
 
@@ -92,7 +92,7 @@ describe("useCreateJob", () => {
     const { result } = renderHook(() => useCreateJob(noopCallbacks()));
 
     act(() => {
-      result.current.start(FULL_HOME);
+      result.current.start(FULL_HOME, "ollama");
     });
 
     await waitFor(() => expect(result.current.stages[1]?.status).toBe("running"));
@@ -110,7 +110,7 @@ describe("useCreateJob", () => {
     const { result } = renderHook(() => useCreateJob(noopCallbacks()));
 
     act(() => {
-      result.current.start(FULL_HOME);
+      result.current.start(FULL_HOME, "ollama");
     });
 
     await waitFor(() => expect(result.current.stages[1]?.status).toBe("failed"));
@@ -125,7 +125,7 @@ describe("useCreateJob", () => {
     const { result } = renderHook(() => useCreateJob(noopCallbacks()));
 
     act(() => {
-      result.current.start(FULL_HOME);
+      result.current.start(FULL_HOME, "ollama");
     });
     await waitFor(() => expect(result.current.stages[1]?.status).toBe("failed"));
 
@@ -145,7 +145,7 @@ describe("useCreateJob", () => {
     const { result } = renderHook(() => useCreateJob(callbacks));
 
     act(() => {
-      result.current.start(FULL_HOME);
+      result.current.start(FULL_HOME, "ollama");
     });
     await waitFor(() => expect(result.current.stages[1]?.status).toBe("running"));
 
@@ -164,7 +164,7 @@ describe("useCreateJob", () => {
     const { result } = renderHook(() => useCreateJob(callbacks));
 
     act(() => {
-      result.current.start(FULL_HOME);
+      result.current.start(FULL_HOME, "ollama");
     });
     await waitFor(() => expect(result.current.stages[3]?.status).toBe("running"));
 
@@ -189,7 +189,7 @@ describe("useCreateJob", () => {
     const { result } = renderHook(() => useCreateJob(noopCallbacks()));
 
     act(() => {
-      result.current.start(FULL_HOME);
+      result.current.start(FULL_HOME, "ollama");
     });
     await waitFor(() => expect(result.current.active).toBe(true));
 

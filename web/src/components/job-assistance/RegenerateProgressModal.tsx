@@ -11,6 +11,8 @@ interface RegenerateProgressModalProps {
   stages: RegenerateStage[];
   /** The new score, once scoring lands. */
   matchPercent: number | null;
+  /** Named on the rewriting stage — it's the one node that can sit "In progress" for minutes on the local engine. */
+  engineLabel?: string;
   onCancel: () => void;
   onRetry: () => void;
   onDone: () => void;
@@ -49,6 +51,7 @@ export default function RegenerateProgressModal({
   companyName,
   stages,
   matchPercent,
+  engineLabel,
   onCancel,
   onRetry,
   onDone,
@@ -66,7 +69,9 @@ export default function RegenerateProgressModal({
     : failed
       ? `${REGENERATE_STAGE_META[failed.key].label} failed. You can retry just this step.`
       : running
-        ? REGENERATE_STAGE_META[running.key].active
+        ? running.key === "rewriting" && engineLabel
+          ? `Working the keywords into your resume with ${engineLabel}…`
+          : REGENERATE_STAGE_META[running.key].active
         : "Starting up…";
 
   function handleClose() {

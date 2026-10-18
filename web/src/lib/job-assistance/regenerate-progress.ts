@@ -15,7 +15,7 @@ interface RegenerateStageMeta {
  */
 export const REGENERATE_STAGES: RegenerateStageMeta[] = [
   { key: "keywords", label: "Keywords", active: "Saving your keyword selection…" },
-  { key: "rewriting", label: "Rewriting", active: "Working the keywords into your resume with Claude…" },
+  { key: "rewriting", label: "Rewriting", active: "Working the keywords into your resume…" },
   { key: "rendering", label: "New PDF", active: "Rendering the updated resume…" },
   { key: "scoring", label: "Re-scoring", active: "Re-scoring the match against the job description…" },
 ];

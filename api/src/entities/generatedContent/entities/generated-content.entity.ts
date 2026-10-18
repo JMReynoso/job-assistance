@@ -1,5 +1,4 @@
 import { ApiProperty } from '@nestjs/swagger';
-import Anthropic from '@anthropic-ai/sdk';
 import {
     Column,
     CreateDateColumn,
@@ -7,6 +6,8 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from 'typeorm';
+import type { AiProviderName } from '../../../externalAPIs/ai/ai-provider.interface';
+import type { ClaudeUsage } from '../../../externalAPIs/claude/claude.types';
 
 @Entity({ name: 'generated_content' })
 export class GeneratedContent {
@@ -46,28 +47,31 @@ export class GeneratedContent {
     tailoredResume?: string;
 
     @ApiProperty({
-        description: 'Token usage for the outreach message call',
+        description:
+            'Token usage for the outreach message call. Claude only — NULL when the row was generated locally.',
         example: { input_tokens: 1500, output_tokens: 800 },
         nullable: true,
     })
     @Column({ type: 'jsonb', nullable: true })
-    outreachMessageUsage?: Anthropic.Message['usage'];
+    outreachMessageUsage?: ClaudeUsage;
 
     @ApiProperty({
-        description: 'Token usage for the follow-up message call',
+        description:
+            'Token usage for the follow-up message call. Claude only — NULL when the row was generated locally.',
         example: { input_tokens: 1500, output_tokens: 800 },
         nullable: true,
     })
     @Column({ type: 'jsonb', nullable: true })
-    followupMessageUsage?: Anthropic.Message['usage'];
+    followupMessageUsage?: ClaudeUsage;
 
     @ApiProperty({
-        description: 'Token usage for the tailored resume call',
+        description:
+            'Token usage for the tailored resume call. Claude only — NULL when the row was generated locally.',
         example: { input_tokens: 6000, output_tokens: 4000 },
         nullable: true,
     })
     @Column({ type: 'jsonb', nullable: true })
-    tailoredResumeUsage?: Anthropic.Message['usage'];
+    tailoredResumeUsage?: ClaudeUsage;
 
     @ApiProperty({
         example: 0.0123,
@@ -103,7 +107,8 @@ export class GeneratedContent {
 
     @ApiProperty({
         example: 'John_Doe_Acme_Corp_1.json',
-        description: 'File name of the tailored resume JSON, saved alongside the PDF',
+        description:
+            'File name of the tailored resume JSON, saved alongside the PDF',
         nullable: true,
     })
     @Column({ type: 'text', nullable: true })
@@ -111,19 +116,21 @@ export class GeneratedContent {
 
     @ApiProperty({
         example: 72,
-        description: 'How well the tailored resume matches the job description, 0-100',
+        description:
+            'How well the tailored resume matches the job description, 0-100',
         nullable: true,
     })
     @Column({ type: 'int', nullable: true })
     jdMatchPercent?: number;
 
     @ApiProperty({
-        description: 'Token usage for the most recent JD-match scoring call',
+        description:
+            'Token usage for the most recent JD-match scoring call. Claude only — NULL when the row was generated locally.',
         example: { input_tokens: 3000, output_tokens: 400 },
         nullable: true,
     })
     @Column({ type: 'jsonb', nullable: true })
-    jdMatchUsage?: Anthropic.Message['usage'];
+    jdMatchUsage?: ClaudeUsage;
 
     @ApiProperty({
         example: 0.0231,
@@ -135,12 +142,13 @@ export class GeneratedContent {
     jdMatchCost?: number;
 
     @ApiProperty({
-        description: 'Token usage for the most recent resume-regeneration call',
+        description:
+            'Token usage for the most recent resume-regeneration call. Claude only — NULL when the row was generated locally.',
         example: { input_tokens: 6000, output_tokens: 4000 },
         nullable: true,
     })
     @Column({ type: 'jsonb', nullable: true })
-    regenerateUsage?: Anthropic.Message['usage'];
+    regenerateUsage?: ClaudeUsage;
 
     @ApiProperty({
         example: 0.1314,
@@ -157,6 +165,17 @@ export class GeneratedContent {
     })
     @Column({ type: 'int', default: 0 })
     regenerateCount: number;
+
+    @ApiProperty({
+        example: 'ollama',
+        description:
+            'Which engine generated this row. NULL on rows written before ' +
+            'the local engine existed, which were all Claude.',
+        nullable: true,
+        enum: ['claude', 'ollama'],
+    })
+    @Column({ type: 'text', nullable: true })
+    provider?: AiProviderName;
 
     @ApiProperty()
     @CreateDateColumn({ name: 'created_at' })

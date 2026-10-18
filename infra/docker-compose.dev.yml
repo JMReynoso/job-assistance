@@ -31,6 +31,10 @@ services:
       - "4001:4001"
       # Node inspector (debugger) — matches the launch.json attach config.
       - "9229:9229"
+    extra_hosts:
+      # Lets the container reach Ollama running on the host. Docker Desktop
+      # provides this name already; on a Linux host it only exists if asked for.
+      - "host.docker.internal:host-gateway"
     environment:
       NODE_ENV: development
       PORT: 4001

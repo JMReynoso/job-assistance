@@ -8,6 +8,8 @@ import ConfirmCancelJobModal from "./ConfirmCancelJobModal";
 interface JobProgressModalProps {
   companyName: string;
   stages: JobStage[];
+  /** Named on the tailoring stage — it's the one node that can sit "In progress" for minutes on the local engine. */
+  engineLabel?: string;
   /** The API's own words for a failed stage, when it gave any. */
   error?: string | null;
   onCancel: () => void;
@@ -47,6 +49,7 @@ function NodeIcon({ status }: { status: JobStageStatus }) {
 export default function JobProgressModal({
   companyName,
   stages,
+  engineLabel,
   error = null,
   onCancel,
   onRetry,
@@ -66,7 +69,9 @@ export default function JobProgressModal({
     : failed
       ? `${STAGE_META[failed.key].label} failed. You can retry just this step.`
       : running
-        ? STAGE_META[running.key].active
+        ? running.key === "tailoring" && engineLabel
+          ? `Tailoring your resume & messages with ${engineLabel}…`
+          : STAGE_META[running.key].active
         : "Starting up…";
 
   function handleClose() {

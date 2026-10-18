@@ -7,10 +7,11 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import {
-    ClaudeResumeResult,
-    ClaudeService,
-    ClaudeTextResult,
-} from '../../externalAPIs/claude/claude.service';
+    AiProvider,
+    AiResumeResult,
+    AiTextResult,
+} from '../../externalAPIs/ai/ai-provider.interface';
+import { AiProviderRegistry } from '../../externalAPIs/ai/ai-provider.registry';
 import { CompanyResearchRepository } from '../companyResearch/company-research.repository';
 import { CompanyResearch } from '../companyResearch/entities/company-research.entity';
 import { JobsService } from '../jobs/jobs.service';
@@ -30,7 +31,7 @@ export class GeneratedContentService {
     constructor(
         private readonly generatedContentRepository: GeneratedContentRepository,
         private readonly missingKeywordRepository: MissingKeywordRepository,
-        private readonly claudeService: ClaudeService,
+        private readonly aiProviders: AiProviderRegistry,
         private readonly companyResearchRepository: CompanyResearchRepository,
         private readonly resumePdfService: ResumePdfService,
         private readonly jobsService: JobsService,
@@ -67,20 +68,22 @@ export class GeneratedContentService {
      */
     async findByJobIdWithKeywords(
         jobId: number,
-    ): Promise<(GeneratedContent & { missingKeywords: MissingKeyword[] }) | null> {
-        const content = await this.generatedContentRepository.findByJobId(jobId);
+    ): Promise<
+        (GeneratedContent & { missingKeywords: MissingKeyword[] }) | null
+    > {
+        const content =
+            await this.generatedContentRepository.findByJobId(jobId);
         if (!content) {
             return null; // null, never undefined — Fastify sends an empty body for undefined
         }
-        const missingKeywords = await this.missingKeywordRepository.findByContentId(
-            content.id,
-        );
+        const missingKeywords =
+            await this.missingKeywordRepository.findByContentId(content.id);
         return { ...content, missingKeywords };
     }
 
     async create(dto: CreateGeneratedContentDto): Promise<GeneratedContent> {
         // The master CV lives at src/CV/resume.json. Read it as raw text (not
-        // imported): it's passed to Claude as context, so it needn't be valid
+        // imported): it's passed to the AI as context, so it needn't be valid
         // JSON, and reading at runtime keeps it out of the compiled bundle.
         const masterResume: string = await readFile(
             join(process.cwd(), 'src/CV/resume.json'),
@@ -113,70 +116,82 @@ export class GeneratedContentService {
         }
         const companySummary: string = companyResearch.summary;
 
-        // call claude outreach message (returns a string)
-        const outreach: ClaudeTextResult =
-            await this.claudeService.draftOutreachMessage(companySummary);
+        // One engine for the whole run: what the request asked for, else the
+        // AI_PROVIDER default. Resolving once means the four calls below can
+        // never disagree about which model wrote this row.
+        const ai: AiProvider = this.aiProviders.resolve(dto.provider);
 
-        // call claude follow up message (returns a string)
-        const followup: ClaudeTextResult =
-            await this.claudeService.draftFollowUpMessage(companySummary);
+        try {
+            // call outreach message (returns a string)
+            const outreach: AiTextResult =
+                await ai.draftOutreachMessage(companySummary);
 
-        // call resume tailoring service (returns a json)
-        const tailoredResume: ClaudeResumeResult =
-            await this.claudeService.draftResume(
+            // call follow up message (returns a string)
+            const followup: AiTextResult =
+                await ai.draftFollowUpMessage(companySummary);
+
+            // call resume tailoring service (returns a json)
+            const tailoredResume: AiResumeResult = await ai.draftResume(
                 masterResume,
                 jobDescription,
                 companyWebsite,
                 companySummary,
             );
 
-        // Render the tailored resume JSON to a PDF + JSON (Handlebars →
-        // Puppeteer), both saved to the storage volume; the stored file names
-        // go on the row.
-        const rendered = await this.resumePdfService.renderResume(
-            tailoredResume.resume,
-            companyName,
-            jobId,
-        );
-        this.logger.log(
-            `Tailored resume rendered for job ${jobId} ` +
-                `(${Object.keys(tailoredResume.resume).length} sections) → ${rendered.pdfFileName}`,
-        );
+            // Render the tailored resume JSON to a PDF + JSON (Handlebars →
+            // Puppeteer), both saved to the storage volume; the stored file names
+            // go on the row.
+            const rendered = await this.resumePdfService.renderResume(
+                tailoredResume.resume,
+                companyName,
+                jobId,
+            );
+            this.logger.log(
+                `Tailored resume rendered for job ${jobId} ` +
+                    `(${Object.keys(tailoredResume.resume).length} sections) → ${rendered.pdfFileName}`,
+            );
 
-        // Score the tailored resume against the job description — the
-        // "JD Match %" the job detail window shows, plus the keywords it's
-        // missing.
-        const match = await this.claudeService.scoreResumeMatch(
-            tailoredResume.resume,
-            jobDescription,
-        );
+            // Score the tailored resume against the job description — the
+            // "JD Match %" the job detail window shows, plus the keywords it's
+            // missing.
+            const match = await ai.scoreResumeMatch(
+                tailoredResume.resume,
+                jobDescription,
+            );
 
-        // Persist the generated row (jobId + Claude output).
-        const saved = await this.generatedContentRepository.create({
-            jobId,
-            outreachMessage: outreach.content,
-            followupMessage: followup.content,
-            tailoredResume: rendered.pdfFileName,
-            tailoredResumeJson: tailoredResume.resume,
-            tailoredResumeJsonPath: rendered.jsonFileName,
-            tailoredResumeUsage: tailoredResume.usage,
-            outreachMessageUsage: outreach.usage,
-            followupMessageUsage: followup.usage,
-            tailoredResumeCost: tailoredResume.cost,
-            outreachMessageCost: outreach.cost,
-            followupMessageCost: followup.cost,
-            jdMatchPercent: match.matchPercent,
-            jdMatchUsage: match.usage,
-            jdMatchCost: match.cost,
-            regenerateCount: 0,
-        } as GeneratedContent);
+            // Persist the generated row (jobId + AI output).
+            const saved = await this.generatedContentRepository.create({
+                jobId,
+                outreachMessage: outreach.content,
+                followupMessage: followup.content,
+                tailoredResume: rendered.pdfFileName,
+                tailoredResumeJson: tailoredResume.resume,
+                tailoredResumeJsonPath: rendered.jsonFileName,
+                tailoredResumeUsage: tailoredResume.usage,
+                outreachMessageUsage: outreach.usage,
+                followupMessageUsage: followup.usage,
+                tailoredResumeCost: tailoredResume.cost,
+                outreachMessageCost: outreach.cost,
+                followupMessageCost: followup.cost,
+                jdMatchPercent: match.matchPercent,
+                jdMatchUsage: match.usage,
+                jdMatchCost: match.cost,
+                regenerateCount: 0,
+                provider: ai.name,
+            } as GeneratedContent);
 
-        await this.missingKeywordRepository.replaceForContent(
-            saved.id,
-            match.missingKeywords,
-        );
+            await this.missingKeywordRepository.replaceForContent(
+                saved.id,
+                match.missingKeywords,
+            );
 
-        return saved;
+            return saved;
+        } finally {
+            // Hands the local model's RAM back the moment the run is over,
+            // success or not. A no-op on Claude. release() never throws, so
+            // it can't mask the error that brought us here.
+            await ai.release();
+        }
     }
 
     /**
@@ -193,7 +208,8 @@ export class GeneratedContentService {
     ): Promise<GeneratedContent> {
         const { jobId, keywords } = dto;
 
-        const content = await this.generatedContentRepository.findByJobId(jobId);
+        const content =
+            await this.generatedContentRepository.findByJobId(jobId);
         if (!content) {
             throw new NotFoundException(
                 `No generated content found for job ${jobId}`,
@@ -214,42 +230,57 @@ export class GeneratedContentService {
         }
 
         // Record what the user checked before spending any money, so the
-        // state survives even if Claude then fails.
+        // state survives even if the AI call then fails.
         await this.missingKeywordRepository.setIncluded(content.id, keywords);
 
-        const regenerated = await this.claudeService.regenerateResume(
-            content.tailoredResumeJson,
-            jobDescription,
-            keywords,
-        );
+        // What the request asked for, else the AI_PROVIDER default. The web
+        // app defaults this to the row's own engine (see useRegenerateResume)
+        // — rewriting a Claude-drafted resume with a local model, or the
+        // reverse, is a quality cliff nobody asked for.
+        const ai: AiProvider = this.aiProviders.resolve(dto.provider);
 
-        const rendered = await this.resumePdfService.renderResume(
-            regenerated.resume,
-            job.companyName,
-            jobId,
-        );
+        try {
+            const regenerated = await ai.regenerateResume(
+                content.tailoredResumeJson,
+                jobDescription,
+                keywords,
+            );
 
-        // Re-score with the SAME method that produced the original number —
-        // a self-reported score from the rewrite call would not be comparable.
-        const match = await this.claudeService.scoreResumeMatch(
-            regenerated.resume,
-            jobDescription,
-        );
+            const rendered = await this.resumePdfService.renderResume(
+                regenerated.resume,
+                job.companyName,
+                jobId,
+            );
 
-        // The re-score's own missingKeywords list is intentionally discarded:
-        // the checkbox list stays as the user left it.
+            // Re-score with the SAME method that produced the original number —
+            // a self-reported score from the rewrite call would not be comparable.
+            const match = await ai.scoreResumeMatch(
+                regenerated.resume,
+                jobDescription,
+            );
 
-        return this.generatedContentRepository.updateFields(content.id, {
-            tailoredResume: rendered.pdfFileName,
-            tailoredResumeJson: regenerated.resume,
-            tailoredResumeJsonPath: rendered.jsonFileName,
-            jdMatchPercent: match.matchPercent,
-            jdMatchUsage: match.usage,
-            jdMatchCost: (content.jdMatchCost ?? 0) + match.cost,
-            regenerateUsage: regenerated.usage,
-            regenerateCost: (content.regenerateCost ?? 0) + regenerated.cost,
-            regenerateCount: (content.regenerateCount ?? 0) + 1,
-        });
+            // The re-score's own missingKeywords list is intentionally discarded:
+            // the checkbox list stays as the user left it.
+
+            return await this.generatedContentRepository.updateFields(
+                content.id,
+                {
+                    tailoredResume: rendered.pdfFileName,
+                    tailoredResumeJson: regenerated.resume,
+                    tailoredResumeJsonPath: rendered.jsonFileName,
+                    jdMatchPercent: match.matchPercent,
+                    jdMatchUsage: match.usage,
+                    jdMatchCost: (content.jdMatchCost ?? 0) + match.cost,
+                    regenerateUsage: regenerated.usage,
+                    regenerateCost:
+                        (content.regenerateCost ?? 0) + regenerated.cost,
+                    regenerateCount: (content.regenerateCount ?? 0) + 1,
+                    provider: ai.name,
+                },
+            );
+        } finally {
+            await ai.release();
+        }
     }
 
     /**

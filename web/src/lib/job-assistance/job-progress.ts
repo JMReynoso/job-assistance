@@ -33,7 +33,7 @@ export const JOB_PROGRESS_STAGES: StageMeta[] = [
   {
     key: "tailoring",
     label: "Application tailoring",
-    active: "Tailoring your resume & messages with Claude…",
+    active: "Tailoring your resume & messages…",
     done: "Resume & messages finished and processed",
   },
   {

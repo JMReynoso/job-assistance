@@ -3,6 +3,7 @@
 import { useJobTracker } from "@/hooks/useJobTracker";
 import { useCreateJob } from "@/hooks/useCreateJob";
 import { useRegenerateResume } from "@/hooks/useRegenerateResume";
+import { useSettings } from "@/hooks/useSettings";
 import { toJobId } from "@/lib/api/mappers";
 import { downloadTailoredResume } from "@/lib/job-assistance/generate-resume";
 import NavBar from "./NavBar";
@@ -13,9 +14,11 @@ import JobProgressModal from "./JobProgressModal";
 import RegenerateProgressModal from "./RegenerateProgressModal";
 import ConfirmCloseModal from "./ConfirmCloseModal";
 import ConfirmDeleteModal from "./ConfirmDeleteModal";
+import SettingsModal from "./SettingsModal";
 
 export default function JobAssistanceApp() {
   const tracker = useJobTracker();
+  const prefs = useSettings();
   const setup = useCreateJob({
     onCreated: tracker.addCreatedJob,
     onFinished: tracker.applyJobDetail,
@@ -30,19 +33,20 @@ export default function JobAssistanceApp() {
     if (jobId === null) return;
     const keywords = tracker.missingKeywords.filter((k) => k.include).map((k) => k.keyword);
     if (keywords.length === 0) return;
-    regen.start(jobId, keywords);
+    // The engine that wrote the row rewrites it — see useRegenerateResume.
+    regen.start(jobId, keywords, tracker.draft.provider);
   }
 
   // "Add to tracker" runs the whole setup pipeline: POST /jobs, then the
   // Perplexity research, then the tailored resume, then the Hunter lookup —
   // in that order, because each step reads what the one before it wrote.
   function handleAddJob() {
-    setup.start(tracker.home);
+    setup.start(tracker.home, prefs.settings.provider);
   }
 
   return (
     <div className="min-h-screen bg-cream text-ink">
-      <NavBar />
+      <NavBar onOpenSettings={prefs.openSettings} />
 
       <main className="mx-auto max-w-[1040px] px-6 pb-[72px] pt-8">
         <AddJobForm home={tracker.home} onFieldChange={tracker.setHomeField} onAdd={handleAddJob} />
@@ -62,6 +66,7 @@ export default function JobAssistanceApp() {
         <JobProgressModal
           companyName={setup.companyName}
           stages={setup.stages}
+          engineLabel={setup.provider === "claude" ? "Claude" : "Ollama (local)"}
           error={setup.error}
           onCancel={() => void setup.cancel()}
           onRetry={setup.retry}
@@ -95,6 +100,7 @@ export default function JobAssistanceApp() {
           companyName={tracker.draft?.companyName ?? ""}
           stages={regen.stages}
           matchPercent={regen.matchPercent}
+          engineLabel={tracker.draft?.provider === "claude" ? "Claude" : "Ollama (local)"}
           onCancel={regen.cancel}
           onRetry={regen.retry}
           onDone={regen.reset}
@@ -112,6 +118,14 @@ export default function JobAssistanceApp() {
 
       {tracker.showDeleteConfirm && (
         <ConfirmDeleteModal title={draftTitle} onConfirm={tracker.confirmDelete} onCancel={tracker.cancelDelete} />
+      )}
+
+      {prefs.open && (
+        <SettingsModal
+          settings={prefs.settings}
+          onProviderChange={prefs.setProvider}
+          onClose={prefs.closeSettings}
+        />
       )}
     </div>
   );

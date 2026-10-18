@@ -1,3 +1,5 @@
+import type { ApiAiProvider } from "@/lib/api/types";
+
 export type JobStatus =
   | "Interested"
   | "Applied"
@@ -64,6 +66,8 @@ export interface Job {
   followupMessage: string;
   /** 0-100, or null until the tailored resume has been scored. */
   jdMatchPercent: number | null;
+  /** Which engine wrote this job's content; null until it's been generated. */
+  provider: ApiAiProvider | null;
   missingKeywords: JobKeyword[];
 }
 

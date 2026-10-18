@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ClaudeModule } from '../../externalAPIs/claude/claude.module';
+import { AiModule } from '../../externalAPIs/ai/ai.module';
 import { CompanyResearchModule } from '../companyResearch/company-research.module';
 import { JobsModule } from '../jobs/jobs.module';
 import { GeneratedContentController } from './generated-content.controller';
@@ -14,7 +14,7 @@ import { ResumePdfModule } from './resume-pdf/resume-pdf.module';
 @Module({
     imports: [
         TypeOrmModule.forFeature([GeneratedContent, MissingKeyword]),
-        ClaudeModule,
+        AiModule,
         CompanyResearchModule,
         ResumePdfModule,
         JobsModule,

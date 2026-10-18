@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ApiGeneratedContent } from "@/lib/api/types";
+import type { ApiAiProvider, ApiGeneratedContent } from "@/lib/api/types";
 import { regenerateTailoredResume } from "@/lib/api/jobs";
 import type { RegenerateStage } from "@/lib/job-assistance/types";
 import { initialRegenerateStages } from "@/lib/job-assistance/regenerate-progress";
@@ -22,7 +22,7 @@ export function useRegenerateResume(onSuccess: (content: ApiGeneratedContent) =>
   const stagesRef = useRef<RegenerateStage[]>([]);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const controllerRef = useRef<AbortController | null>(null);
-  const argsRef = useRef<{ jobId: number; keywords: string[] } | null>(null);
+  const argsRef = useRef<{ jobId: number; keywords: string[]; provider: ApiAiProvider | null } | null>(null);
   // Bumped by every start()/retry()/reset(); an in-flight call whose id no
   // longer matches was superseded (cancelled, retried, or unmounted) and
   // must not touch state on arrival.
@@ -71,21 +71,21 @@ export function useRegenerateResume(onSuccess: (content: ApiGeneratedContent) =>
     setMatchPercent(null);
   }
 
-  async function run(jobId: number, keywords: string[]) {
+  async function run(jobId: number, keywords: string[], provider: ApiAiProvider | null) {
     clearTimers();
     const id = ++runId.current;
     const base = initialRegenerateStages();
     stagesRef.current = base;
     setStages(base);
     setMatchPercent(null);
-    argsRef.current = { jobId, keywords };
+    argsRef.current = { jobId, keywords, provider };
 
     const controller = new AbortController();
     controllerRef.current = controller;
     paceToLastStage(id);
 
     try {
-      const content = await regenerateTailoredResume(jobId, keywords, controller.signal);
+      const content = await regenerateTailoredResume(jobId, keywords, provider, controller.signal);
       if (runId.current !== id) return; // superseded — a newer run or a reset owns the state now
       clearTimers();
       const done = stagesRef.current.map((s) => ({ ...s, status: "done" as const }));
@@ -105,13 +105,13 @@ export function useRegenerateResume(onSuccess: (content: ApiGeneratedContent) =>
     }
   }
 
-  function start(jobId: number, keywords: string[]) {
-    void run(jobId, keywords);
+  function start(jobId: number, keywords: string[], provider: ApiAiProvider | null) {
+    void run(jobId, keywords, provider);
   }
 
   function retry() {
     if (!argsRef.current) return;
-    void run(argsRef.current.jobId, argsRef.current.keywords);
+    void run(argsRef.current.jobId, argsRef.current.keywords, argsRef.current.provider);
   }
 
   function cancel() {

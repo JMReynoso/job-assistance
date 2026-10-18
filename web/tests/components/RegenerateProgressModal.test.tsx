@@ -44,7 +44,7 @@ describe("RegenerateProgressModal", () => {
   it("shows the running stage's status line", () => {
     renderModal(stagesWith({ keywords: "done", rewriting: "running" }));
 
-    expect(screen.getByText(/Working the keywords into your resume with Claude/)).toBeInTheDocument();
+    expect(screen.getByText(/Working the keywords into your resume/)).toBeInTheDocument();
   });
 
   it("opens a cancel confirmation instead of closing while still running", async () => {
