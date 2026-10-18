@@ -249,6 +249,33 @@ describe('JobDetailService', () => {
             });
         });
 
+        it('returns what findOne returns for that Job', async () => {
+            // Arrange — every write call answers with a stale value, while the
+            // reads hold the truth. Only a response built by a fresh read (not
+            // by stitching the writes' return values) can match findOne.
+            const stale = 'stale';
+            jobs.update.mockResolvedValue({ ...job, companyName: stale });
+            researchService.updateSummaryFromJobDetail.mockResolvedValue({
+                ...research,
+                summary: stale,
+            });
+            contentService.updateFromJobDetail.mockResolvedValue({
+                ...content,
+                outreachMessage: stale,
+            });
+
+            // Act
+            const saved = await service.update(JOB_ID, {
+                companyName: 'Globex',
+                notes: 'New notes',
+                outreachMessage: 'New message',
+            });
+
+            // Assert
+            expect(saved).toEqual(await service.findOne(JOB_ID));
+            expect(saved).toEqual({ job, contacts, research, content });
+        });
+
         it('returns [] Contacts and null research and content for a Job with no satellites', async () => {
             // Arrange
             contactsService.findByJobId.mockResolvedValue([]);

@@ -86,43 +86,40 @@ export class JobDetailService {
         if (dto.companyPageUrl !== undefined)
             jobPatch.companyPageUrl = dto.companyPageUrl;
 
-        const job =
-            Object.keys(jobPatch).length > 0
-                ? await this.jobsService.update(jobId, jobPatch)
-                : await this.jobsService.findOne(jobId);
+        if (Object.keys(jobPatch).length > 0) {
+            await this.jobsService.update(jobId, jobPatch);
+        }
 
-        // Notes → the newest research row's summary. No row, nothing to write.
-        let research = await this.companyResearchService.findByJobId(jobId);
-        if (dto.notes !== undefined && research) {
-            research =
+        // Notes → the newest research row's summary. The read is only to find
+        // that row's id; no row, nothing to write.
+        if (dto.notes !== undefined) {
+            const research =
+                await this.companyResearchService.findByJobId(jobId);
+            if (research) {
                 await this.companyResearchService.updateSummaryFromJobDetail(
                     research.id,
                     dto.notes,
                 );
+            }
         }
 
         // The two messages and the keyword checkboxes → the newest generation
-        // run. Returns null (and writes nothing) when the job has none.
-        const content =
+        // run. Writes nothing when the job has none.
+        if (
             dto.outreachMessage !== undefined ||
             dto.followupMessage !== undefined ||
             dto.includedKeywords !== undefined
-                ? await this.generatedContentService.updateFromJobDetail(
-                      jobId,
-                      {
-                          outreachMessage: dto.outreachMessage,
-                          followupMessage: dto.followupMessage,
-                          includedKeywords: dto.includedKeywords,
-                      },
-                  )
-                : await this.generatedContentService.findByJobIdWithKeywords(
-                      jobId,
-                  );
+        ) {
+            await this.generatedContentService.updateFromJobDetail(jobId, {
+                outreachMessage: dto.outreachMessage,
+                followupMessage: dto.followupMessage,
+                includedKeywords: dto.includedKeywords,
+            });
+        }
 
-        // Contacts are read-only in the window; included so the response is a
-        // complete job detail the client can merge in one call.
-        const contacts = await this.contactsService.findByJobId(jobId);
-
-        return { job, contacts, research, content };
+        // The response is the read, not an assembly of the writes' return
+        // values, so a save and an open can never disagree about what a job
+        // detail contains. A few extra small reads per save is the price.
+        return this.findOne(jobId);
     }
 }
