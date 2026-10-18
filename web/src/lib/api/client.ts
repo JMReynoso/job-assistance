@@ -37,9 +37,10 @@ async function errorDetail(response: Response): Promise<string | undefined> {
 /**
  * GETs JSON from the API.
  *
- * Every non-ok response is a real error: the by-job endpoints return `[]` or
- * `null` for "this job has none yet" rather than 404ing, so callers never have
- * to treat a status code as an absence signal.
+ * Every non-ok response is a real error: a job's missing satellites come back
+ * as `[]` or `null` (from GET /jobs/:id/detail and the per-entity by-job reads
+ * alike) rather than 404ing, so callers never have to treat a status code as an
+ * absence signal.
  */
 export async function apiGet<T>(path: string): Promise<T> {
   let response: Response;

@@ -16,7 +16,7 @@ Five stages, run one after another, each a real API call:
  2. research   POST /company-research        → 2 live Perplexity searches
  3. tailoring  POST /generated-content        → 4 Claude or Ollama calls + a PDF render
  4. contact    POST /contacts                 → 1 Hunter.io domain search
- 5. ready      GET ×4 (fetchJobDetail)        → no write — folds the finished job onto its tracker row
+ 5. ready      GET /jobs/:id/detail           → no write — one read (fetchJobDetail) folds the finished job onto its tracker row
 ```
 
 The progress modal beside the form renders one stepper node per stage. Unlike the modal's earlier prototype, every node's status now comes straight from a real response: a stage flips to `done` the moment its call returns 200/201, not on a timer.

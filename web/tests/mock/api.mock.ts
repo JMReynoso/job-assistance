@@ -109,15 +109,32 @@ export interface MockApiOptions {
   /** Response for POST /jobs; the posted body is echoed over it. */
   createdJob?: ApiJob;
   /**
-   * Substring of a path that should fail, e.g. "/jobs" or "/contacts". Use
-   * "/detail" to force PATCH /jobs/:id/detail specifically without also
-   * failing the plain GET /jobs/:id fetch.
+   * Substring of a path that should fail, e.g. "/jobs" or "/contacts",
+   * optionally prefixed with an HTTP method: "GET /detail" fails only the
+   * Job Detail load, "PATCH /detail" only the save. A bare path matches any
+   * method — so a bare "/detail" fails the load *and* the save, which is
+   * rarely what a test means.
    */
   failOn?: string;
   /** Status for the failing route; 0 simulates never reaching the server. */
   failStatus?: number;
-  /** Substring of a path whose request never settles — for testing cancel. */
+  /**
+   * Substring of a path whose request never settles — for testing cancel.
+   * Takes the same optional method prefix as {@link MockApiOptions.failOn}.
+   */
   hangOn?: string;
+}
+
+const METHOD_PREFIX = /^(GET|POST|PATCH|PUT|DELETE) (.+)$/;
+
+/**
+ * Whether a failOn / hangOn option targets this request. "GET /detail" must
+ * match on method and path; a bare "/detail" matches the path under any method.
+ */
+function matchesRequest(option: string | undefined, method: string, url: string): boolean {
+  if (!option) return false;
+  const prefixed = METHOD_PREFIX.exec(option);
+  return prefixed ? method === prefixed[1] && url.includes(prefixed[2]) : url.includes(option);
 }
 
 /**
@@ -139,15 +156,15 @@ export function mockApi(options: MockApiOptions = {}): jest.Mock {
 
   const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
+    const method = init?.method ?? "GET";
 
-    if (failOn && url.includes(failOn)) {
+    if (matchesRequest(failOn, method, url)) {
       if (failStatus === 0) throw new TypeError("Failed to fetch");
       return { ok: false, status: failStatus, json: async () => ({}) } as Response;
     }
 
-    if (hangOn && url.includes(hangOn)) return new Promise<Response>(() => {});
+    if (matchesRequest(hangOn, method, url)) return new Promise<Response>(() => {});
 
-    const method = init?.method ?? "GET";
     const sent = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
 
     if (url.includes("/generated-content/regenerate")) {
@@ -179,16 +196,16 @@ export function mockApi(options: MockApiOptions = {}): jest.Mock {
     const detailMatch = url.match(/\/jobs\/(\d+)\/detail$/);
     if (detailMatch) {
       const jobId = Number(detailMatch[1]);
-      const patch = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
-      const base = jobs.find((j) => j.id === jobId) ?? jobs[0];
-      const res = resolveByJob(research, jobId);
-      const gen = resolveByJob(content, jobId);
-      const { notes, outreachMessage, followupMessage, includedKeywords, ...jobFields } = patch;
 
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
+      // Look the row up by id rather than always answering with jobs[0] —
+      // otherwise opening the second row merges in the first row's company.
+      const detailFor = (patch: Record<string, unknown>) => {
+        const base = jobs.find((j) => j.id === jobId) ?? jobs[0];
+        const res = resolveByJob(research, jobId);
+        const gen = resolveByJob(content, jobId);
+        const { notes, outreachMessage, followupMessage, includedKeywords, ...jobFields } = patch;
+
+        return {
           job: { ...base, ...jobFields },
           contacts: resolveByJob(contacts, jobId),
           research: res && notes !== undefined ? { ...res, summary: notes } : res,
@@ -205,26 +222,22 @@ export function mockApi(options: MockApiOptions = {}): jest.Mock {
                   : k.include,
               })),
             },
-        }),
-      } as Response;
+        };
+      };
+
+      // GET is the open: the fixtures as they stand. PATCH is the save: the
+      // same fixtures with the posted edits applied, as the server echoes them.
+      const detail = method === "PATCH" ? detailFor(sent) : detailFor({});
+      return { ok: true, status: 200, json: async () => detail } as Response;
     }
 
-    // Every by-job route ends in the job id, so one parse serves all three.
-    const jobId = Number(url.slice(url.lastIndexOf("/") + 1));
-
-    const body = (() => {
-      if (url.includes("/contacts/by-job/")) return resolveByJob(contacts, jobId);
-      if (url.includes("/company-research/by-job/")) return resolveByJob(research, jobId);
-      if (url.includes("/generated-content/by-job/")) return resolveByJob(content, jobId);
-      // Order matters: the by-job paths above also contain "/jobs" in the
-      // base URL only, so this is safe as the fallthrough. Look the row up by
-      // id rather than always answering with jobs[0] — otherwise opening the
-      // second row merges in the first row's company.
-      if (url.match(/\/jobs\/\d+$/)) return jobs.find((j) => j.id === jobId) ?? jobs[0];
-      return jobs;
-    })();
-
-    return { ok: true, status: 200, json: async () => body } as Response;
+    // The only other read the app makes is the tracker list. Anything else — a
+    // retired by-job URL, say — fails loudly instead of answering 200, so a test
+    // can't pass by hitting a route the app doesn't use.
+    if (method === "GET" && url.endsWith("/jobs")) {
+      return { ok: true, status: 200, json: async () => jobs } as Response;
+    }
+    throw new Error(`mockApi: unexpected ${method} ${url}`);
   });
 
   global.fetch = fetchMock as unknown as typeof fetch;

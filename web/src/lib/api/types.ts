@@ -87,6 +87,20 @@ export interface ApiGeneratedContent {
 }
 
 /**
+ * One job as the detail window sees it: the job and its satellites. What
+ * `GET /jobs/:id/detail` returns, and what `PATCH /jobs/:id/detail` answers
+ * with after a save. Mirrors the API's JobDetailResponse.
+ */
+export interface ApiJobDetail {
+  job: ApiJob;
+  contacts: ApiContact[];
+  /** null when the job has never been researched. */
+  research: ApiCompanyResearch | null;
+  /** null when nothing has been generated for the job yet. */
+  content: ApiGeneratedContent | null;
+}
+
+/**
  * The job detail window's Save payload — one PATCH across three tables.
  * Mirrors the API's UpdateJobDetailDto: every field optional, and an omitted
  * field means "leave this alone" rather than "clear it".

@@ -3,7 +3,7 @@
 One page covering **everything the API stores and exposes**: each entity, the Postgres table behind it, how rows get written, and the HTTP endpoints that reach them.
 
 - For *how* the layers fit together (controller → service → repository), see [controllers-services-repositories.md](controllers-services-repositories.md).
-- For how the web app assembles one job out of these four tables, see [job-detail-window.md](job-detail-window.md).
+- For how a job and its satellites are read and saved as one Job Detail, see [job-detail-window.md](job-detail-window.md).
 - For *how* the schema changes, see [migrations-and-seeds.md](migrations-and-seeds.md).
 - For the external APIs that fill three of these tables, see [perplexity-api.md](perplexity-api.md), [claude-api.md](claude-api.md), and [hunter-api.md](hunter-api.md).
 
@@ -55,7 +55,7 @@ The arrow matters: **`generated_content` can't be created until `company_researc
 - **`jobId` is a plain `integer` with no foreign-key constraint.** The relationship is a convention the code upholds, not something Postgres enforces. See the gaps section below for what that costs. **`missing_keywords` is the one exception** — its `generatedContentId` is a real FK with `ON DELETE CASCADE`.
 - **Anything an external API returned verbatim goes in `jsonb`** (`urls`, `usage`, the three `*Usage` columns) — queryable, but stored without us having to model it.
 - **Request bodies are validated and stripped.** A global `ValidationPipe` with `whitelist: true` means any field not declared on the DTO is silently dropped before your service sees it; `transform: true` turns `"5"` into `5` where the DTO says number.
-- **Errors are consistent:** `400` from validation, `404` raised by the service when a row is missing, `503` when an external API is busy or unreachable, `500` from [`BaseRepository`](../api/src/entities/base.repository.ts) if Postgres itself fails (the real error is logged, never returned). The three `by-job/:jobId` reads are the deliberate exception — they answer `200` with `[]` or `null` rather than 404ing; see [below](#the-by-job-routes-never-404).
+- **Errors are consistent:** `400` from validation, `404` raised by the service when a row is missing, `503` when an external API is busy or unreachable, `500` from [`BaseRepository`](../api/src/entities/base.repository.ts) if Postgres itself fails (the real error is logged, never returned). The three `by-job/:jobId` reads are the deliberate exception — they answer `200` with `[]` or `null` rather than 404ing; see [below](#the-per-entity-by-job-reads-never-404).
 - **Migrations own the schema.** `synchronize` is off — editing an entity does nothing until you write a migration.
 - **Every URL field is spelled `…Url` / `…Urls`** across every entity and DTO. The one trap this leaves: `jobs.extraUrls` is a single `text` URL, while `CreateCompanyResearchDto.extraUrls` is a `string[]` — same name, different type.
 
@@ -93,16 +93,30 @@ The root record. Created by hand (or by the frontend); everything else reference
 | --- | --- | --- | --- |
 | `GET` | `/jobs` | — | `200` — all jobs, `id ASC` |
 | `GET` | `/jobs/:id` | — | `200` · `404` |
+| `GET` | `/jobs/:id/detail` | — | `200` · `400` · `404` — the whole Job Detail, in one read; see below |
 | `POST` | `/jobs` | `CreateJobDto` | `201` — the created job |
 | `PATCH` | `/jobs/:id` | `UpdateJobDto` (all fields optional) | `200` · `404` |
-| `PATCH` | `/jobs/:id/detail` | `UpdateJobDetailDto` (all fields optional) | `200` · `404` — the job detail window's Save; see below |
+| `PATCH` | `/jobs/:id/detail` | `UpdateJobDetailDto` (all fields optional) | `200` · `404` — the job detail window's Save, answered with the same Job Detail read; see below |
 | `DELETE` | `/jobs/:id` | — | `204` · `404` |
 
 **`CreateJobDto`** — `companyName` (≤255 chars), `jobPostingUrl`, `companyPageUrl`, `companyLinkedInUrl` are required; `extraUrls`, `status`, `dateApplied`, and `dateLastContacted` optional. All four URL fields are validated with `@IsUrl()`.
 
 The two dates are matched against `/^\d{4}-\d{2}-\d{2}$/` rather than `@IsDateString()` — which would also accept a full ISO datetime, and a `date` column has nowhere to put the time. `@Matches` also **rejects `''`** where `@IsOptional()` alone would not, so neither `POST` nor (via `PartialType`) `PATCH` can blank one back out.
 
-**`PATCH /jobs/:id/detail`** is a separate, wider endpoint — not on `JobsController`, but on a `JobDetailController` in its own `JobDetail` module (see [How the modules wire up](#how-the-modules-wire-up)). It's the single call behind the job detail window's Save button: one `UpdateJobDetailDto` carries the six `jobs` columns above *plus* `notes` (→ `company_research.summary`), `outreachMessage`/`followupMessage` (→ `generated_content`), and `includedKeywords` (→ `missing_keywords.include`). `JobDetailService.update()` orchestrates all three entities' services and returns the same `{ job, contacts, research, content }` shape `fetchJobDetail` assembles client-side, so the frontend can treat the response as a fresh read. Satellite rows that don't exist yet (no research, no generated content) are silently skipped rather than created — see [job-detail-window.md](job-detail-window.md#the-write-path) for the full contract, including why the five `jobs` fields above are omitted from the patch rather than sent blank.
+**`GET /jobs/:id/detail`** and **`PATCH /jobs/:id/detail`** are a separate, wider pair — not on `JobsController`, but on a `JobDetailController` in its own `JobDetail` module (see [How the modules wire up](#how-the-modules-wire-up)). Both speak in terms of one **Job Detail**: a job together with its **satellites**.
+
+A Job Detail is `{ job, contacts, research, content }`, and `JobDetailService.findOne()` is the one place that defines it:
+
+- `job` — the `jobs` row.
+- `contacts` — *all* of the job's contacts, most reachable first (`confidence DESC`, then `id`). `[]` when there are none.
+- `research` — the job's newest `company_research` row (highest `id`). `null` when it has never been researched. Older runs are history and aren't part of a Job Detail.
+- `content` — the job's newest `generated_content` row (highest `id`) **with its `missingKeywords`** (ordered by `id`). `null` when nothing has been generated. Older runs aren't part of a Job Detail.
+
+`findOne()` runs the four existing service reads concurrently, so it costs the slowest read rather than the sum.
+
+**`GET /jobs/:id/detail`** returns that, and nothing else. A Job Detail exists exactly when its job does, so the status codes follow from that: `404` only when no job has that id — **even when orphaned satellites still carry that `jobId`**, since there is no foreign key to stop them — and `400` for a non-integer id. A job with no satellites yet is a normal `200` with `[]` and `null`s. The path parameter must be named `:id`, not `:jobId`: `GET /jobs/:id` already exists, and find-my-way throws **at boot** for two routes that differ only by parameter name.
+
+**`PATCH /jobs/:id/detail`** is the single call behind the job detail window's Save button: one `UpdateJobDetailDto` carries the six `jobs` columns above *plus* `notes` (→ `company_research.summary`), `outreachMessage`/`followupMessage` (→ `generated_content`), and `includedKeywords` (→ `missing_keywords.include`). `JobDetailService.update()` checks the job exists, writes through the three entities' services, and then **returns `findOne()`** — the very same read `GET /jobs/:id/detail` serves — rather than assembling a response from the writes. A save response and an open response for the same job therefore can't drift apart, and the frontend can treat either as a fresh read. Satellite rows that don't exist yet (no research, no generated content) are silently skipped rather than created — see [job-detail-window.md](job-detail-window.md#the-write-path) for the full contract, including why the five `jobs` fields above are omitted from the patch rather than sent blank.
 
 ### How rows get written
 
@@ -306,8 +320,9 @@ A dummy entity kept as a copy-me reference for the folder shape (entity / dto / 
 | `GET` | `/jobs` | `200` | |
 | `POST` | `/jobs` | `201` | |
 | `GET` | `/jobs/:id` | `200` | |
+| `GET` | `/jobs/:id/detail` | `200` | The whole Job Detail: job, contacts, newest research, newest content + its missing keywords. `404` only for a missing job |
 | `PATCH` | `/jobs/:id` | `200` | |
-| `PATCH` | `/jobs/:id/detail` | `200` | Orchestrates `jobs` + `company_research` + `missing_keywords` in one call |
+| `PATCH` | `/jobs/:id/detail` | `200` | Orchestrates `jobs` + `company_research` + `missing_keywords` in one call, then returns the same Job Detail read |
 | `DELETE` | `/jobs/:id` | `204` | |
 | `GET` | `/company-research` | `200` | |
 | `POST` | `/company-research` | `201` | Calls Perplexity ×2 |
@@ -330,13 +345,13 @@ A dummy entity kept as a copy-me reference for the folder shape (entity / dto / 
 
 Every `:id` route returns `404` when the row doesn't exist. Every endpoint that calls an external API can return `503` when that API is busy or unreachable.
 
-### The `by-job` routes never 404
+### The per-entity `by-job` reads never 404
 
-The three `by-job/:jobId` reads answer `200` with `[]` or `null` for a job that has nothing yet — they do **not** 404. "No research yet" is the *normal* state of a job you just added, not an exceptional one, so absence is data. (`POST /generated-content` still 404s on missing research, because there it genuinely is a precondition failure — a read is different.) That gives the frontend one trivially correct rule: **any non-`ok` response is a real error**, with no 404-as-absence special case per endpoint.
+The job detail window no longer calls these — it reads everything from `GET /jobs/:id/detail` — but the three `by-job/:jobId` routes stay as per-entity reads, handy for inspecting one satellite at a time with `curl`, and their contract still holds. They answer `200` with `[]` or `null` for a job that has nothing yet — they do **not** 404. "No research yet" is the *normal* state of a job you just added, not an exceptional one, so absence is data. (`POST /generated-content` still 404s on missing research, because there it genuinely is a precondition failure — a read is different.) That gives the frontend one trivially correct rule: **any non-`ok` response is a real error**, with no 404-as-absence special case per endpoint.
 
 Two things this rests on:
 
-- **The service must return `null`, never `undefined`.** Fastify treats an `undefined` payload as an empty body, and the browser's `res.json()` then throws `Unexpected end of JSON input`. TypeORM's `findOne` returns `null`, so the natural code is safe — but don't write `?? undefined`, and don't swap in `Array.prototype.find`.
+- **The service must return `null`, never `undefined`.** Fastify treats an `undefined` payload as an empty body, and the browser's `res.json()` then throws `Unexpected end of JSON input`. TypeORM's `findOne` returns `null`, so the natural code is safe — but don't write `?? undefined`, and don't swap in `Array.prototype.find`. `GET /jobs/:id/detail` rests on the same rule: its `research` and `content` must be `null`, or the key silently vanishes from the JSON.
 - **Don't rename these to `/contacts/:jobId/latest`.** find-my-way refuses to register two routes differing only by parameter name and throws **at boot**. `by-job/:jobId` is three static-prefixed segments and shares no router node with `:id`, so ordering between them doesn't matter.
 
 They also use `ParseIntPipe` rather than the `+id` coercion the older routes use: `+id` on a non-numeric param yields `NaN` and a confusing 404/500 instead of a clean 400.
@@ -362,14 +377,14 @@ AppModule
 ├── ContactsModule                → /contacts
 │   └── HunterModule
 ├── JobsModule                    → /jobs
-└── JobDetailModule               → /jobs/:id/detail
+└── JobDetailModule               → GET + PATCH /jobs/:id/detail
     ├── JobsModule (reused)
     ├── CompanyResearchModule (reused)
     ├── GeneratedContentModule (reused)
     └── ContactsModule (reused)
 ```
 
-`JobDetailModule` owns no entity and no `TypeOrmModule.forFeature` — it only composes the four modules above so `JobDetailService` can orchestrate a save across `jobs`, `company_research`, `generated_content`, and read `contacts`, without a circular import: `GeneratedContentModule` already imports `JobsModule`, so `JobsModule` importing back into a `GeneratedContentModule`-touching orchestrator would need `forwardRef()` on both sides. Sitting `JobDetailModule` above all four avoids that entirely.
+`JobDetailModule` owns no entity and no `TypeOrmModule.forFeature` — it only composes the four modules above so `JobDetailService` can read a whole Job Detail from them (`findOne()`) and orchestrate a save across `jobs`, `company_research` and `generated_content` (`update()`), without a circular import: `GeneratedContentModule` already imports `JobsModule`, so `JobsModule` importing back into a `GeneratedContentModule`-touching orchestrator would need `forwardRef()` on both sides. Sitting `JobDetailModule` above all four avoids that entirely.
 
 Perplexity and Hunter are deliberately **not** app-wide: each needs its API key the moment it loads, so the app can boot without those keys until a feature actually uses one. Claude no longer needs the same treatment — `ClaudeModule` (via `AiModule`) loads unconditionally now, because `anthropic.provider.ts` returns `null` instead of throwing when `ANTHROPIC_API_KEY` is absent, and `ClaudeService` only raises a clear error on first *use*. That's what lets an Ollama-only setup boot with no Anthropic key at all — see [ollama-api.md](ollama-api.md).
 

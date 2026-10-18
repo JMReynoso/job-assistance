@@ -9,45 +9,21 @@ import type {
   ApiFindContacts,
   ApiGeneratedContent,
   ApiJob,
+  ApiJobDetail,
   ApiJobDetailPatch,
 } from "./types";
-
-/** Everything the detail modal needs for one job, as the API returns it. */
-export interface JobDetail {
-  job: ApiJob;
-  contacts: ApiContact[];
-  /** null when the job has never been researched. */
-  research: ApiCompanyResearch | null;
-  /** null when nothing has been generated for the job yet. */
-  content: ApiGeneratedContent | null;
-}
 
 export function fetchJobs(): Promise<ApiJob[]> {
   return apiGet<ApiJob[]>("/jobs");
 }
 
 /**
- * All four reads for one job, in parallel.
- *
- * `Promise.all` rather than `allSettled` on purpose: the two resources a new
- * job legitimately lacks come back as `null` from a perfectly successful
- * request, so absence is already handled and anything that rejects here is a
- * real failure worth surfacing as one error with one retry. If these endpoints
- * ever diverge in reliability, `allSettled` is the upgrade path.
- *
- * Re-reading /jobs/:id when the list row already has those fields is one
- * redundant round-trip, kept because it's free (parallel) and means the modal
- * shows the truth even if the list is stale.
+ * The whole Job Detail for one job — the job and its satellites — in one
+ * request. A job that exists but has no satellites yet is a normal 200 (`[]`
+ * and `null`); only a job that doesn't exist rejects, with a 404.
  */
-export async function fetchJobDetail(jobId: number): Promise<JobDetail> {
-  const [job, contacts, research, content] = await Promise.all([
-    apiGet<ApiJob>(`/jobs/${jobId}`),
-    apiGet<ApiContact[]>(`/contacts/by-job/${jobId}`),
-    apiGet<ApiCompanyResearch | null>(`/company-research/by-job/${jobId}`),
-    apiGet<ApiGeneratedContent | null>(`/generated-content/by-job/${jobId}`),
-  ]);
-
-  return { job, contacts, research, content };
+export function fetchJobDetail(jobId: number): Promise<ApiJobDetail> {
+  return apiGet<ApiJobDetail>(`/jobs/${jobId}/detail`);
 }
 
 /**
@@ -71,15 +47,15 @@ export function regenerateTailoredResume(
 }
 
 /**
- * Saves the job detail window in one call. The response is a full JobDetail
+ * Saves the job detail window in one call. The response is a full ApiJobDetail
  * — the same four pieces fetchJobDetail returns — so the caller can feed it
  * straight to mergeJobDetail and show server truth rather than its own draft.
  */
 export function updateJobDetail(
   jobId: number,
   patch: ApiJobDetailPatch,
-): Promise<JobDetail> {
-  return apiPatch<JobDetail>(`/jobs/${jobId}/detail`, patch);
+): Promise<ApiJobDetail> {
+  return apiPatch<ApiJobDetail>(`/jobs/${jobId}/detail`, patch);
 }
 
 /**

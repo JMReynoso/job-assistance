@@ -140,7 +140,7 @@ job-assistance/
 │       │   ├── companyResearch/  What Perplexity found
 │       │   ├── generatedContent/ What Claude wrote (+ resume-pdf/ renderer)
 │       │   ├── contacts/       Who Hunter found
-│       │   ├── jobDetail/      Composes the four above into one save endpoint
+│       │   ├── jobDetail/      Composes the four above into one read and one save endpoint
 │       │   └── example/        A copy-me template, not a real feature
 │       ├── externalAPIs/       Thin clients: claude/, perplexity/, hunter/, ollama/
 │       ├── database/           migrations/ and seeds/
@@ -173,7 +173,7 @@ Each entity folder follows the same five-file shape: `.entity.ts` (the TypeORM m
 | --- | --- |
 | [data-model.md](docs/data-model.md) | Every entity, table, column, and endpoint in one place — start here |
 | [add-job-pipeline.md](docs/add-job-pipeline.md) | What "Add to tracker" actually does, stage by stage, including retry and cancel |
-| [job-detail-window.md](docs/job-detail-window.md) | How one job is assembled from four tables, and how Save writes back |
+| [job-detail-window.md](docs/job-detail-window.md) | How a job and its satellites are read as one Job Detail, and how Save writes back |
 | [controllers-services-repositories.md](docs/controllers-services-repositories.md) | Adding a feature to the API, the way this project does it |
 | [migrations-and-seeds.md](docs/migrations-and-seeds.md) | Changing the schema and loading data with TypeORM |
 | [claude-api.md](docs/claude-api.md) | The Claude integration: prompts, parsing, cost tracking |
@@ -217,7 +217,8 @@ Each entity folder follows the same five-file shape: `.entity.ts` (the TypeORM m
 │                   ation)                                              │
 │                                                                       │
 │   Feature modules:  jobs · company-research · generated-content ·     │
-│                     contacts · job-detail (composes the other four)   │
+│                     contacts · job-detail (one GET + one PATCH        │
+│                     over the other four: a job and its satellites)    │
 │                                                                       │
 │   External clients (loaded per-module, so the app boots without keys):│
 │      PerplexityService     ClaudeService      HunterService           │
@@ -243,7 +244,7 @@ Each entity folder follows the same five-file shape: `.entity.ts` (the TypeORM m
 
 ### The data model
 
-A **job** is the center; the other three tables hang off it by `jobId`, each filled by a different external API:
+A **job** is the center; the other three tables — its **satellites** — hang off it by `jobId`, each filled by a different external API:
 
 ```
                     jobs  ← you create this first
@@ -256,6 +257,8 @@ company_research → generated_content  contacts
                         ▼
                   missing_keywords
 ```
+
+Opening a job reads all of it in **one** request: `GET /jobs/:id/detail` returns the job plus its satellites — all its contacts, its newest research, and its newest generated content with its missing keywords. Saving the detail window goes back through the same route (`PATCH`), and answers with that same read.
 
 Two things that arrow means in practice:
 
@@ -271,7 +274,7 @@ Clicking **Add to tracker** runs this chain, each stage a real HTTP call whose r
  2. research    POST /company-research    → 2 Perplexity searches
  3. tailoring   POST /generated-content   → 4 Claude calls + a PDF render
  4. contact     POST /contacts            → 1 Hunter.io domain search
- 5. ready       GET × 4                   → reads the finished job back onto its row
+ 5. ready       GET /jobs/:id/detail      → reads the finished job back onto its row
 ```
 
 A failure stops the chain at that stage and shows the API's own error text. **Retry resumes from the failed stage**, not from the start — re-running a stage that already succeeded means paying Perplexity or Claude for it twice.
@@ -283,8 +286,9 @@ The full table is in [data-model.md](docs/data-model.md#every-endpoint-in-one-ta
 | Method | Path | Does |
 | --- | --- | --- |
 | `GET` | `/jobs` | The tracker list |
+| `GET` | `/jobs/:id/detail` | The whole Job Detail in one read — the job plus its satellites: all its contacts, its newest research, its newest content + missing keywords. `404` only if the job doesn't exist |
 | `POST` | `/jobs` | Stage 1 — create the job row |
-| `PATCH` | `/jobs/:id/detail` | The detail window's Save — fans one draft across `jobs`, `company_research`, and `missing_keywords` in a single call |
+| `PATCH` | `/jobs/:id/detail` | The detail window's Save — fans one draft across `jobs`, `company_research`, and `missing_keywords` in a single call, then answers with the same Job Detail read |
 | `DELETE` | `/jobs/:id` | Remove a job |
 | `POST` | `/company-research` | Stage 2 — Perplexity × 2 |
 | `POST` | `/generated-content` | Stage 3 — Claude × 4 + PDF render. 404s if the job has no research yet |
@@ -295,7 +299,7 @@ The full table is in [data-model.md](docs/data-model.md#every-endpoint-in-one-ta
 | `GET` | `/contacts/by-job/:jobId` | A job's contacts, or `[]` |
 | `GET` | `/health` | Liveness |
 
-The three `by-job` reads deliberately **never 404** — "no research yet" is the normal state of a job you just added, so absence is returned as data. That gives the frontend one rule with no per-endpoint exceptions: any non-`ok` response is a real error.
+The detail window reads through `GET /jobs/:id/detail`; the three `by-job` routes remain as per-entity reads it no longer uses. Both deliberately keep absence out of the error path: the `by-job` reads **never 404**, and a Job Detail 404s only when the job itself is missing — "no research yet" is the normal state of a job you just added, so a missing satellite is returned as data (`null` or `[]`). That gives the frontend one rule with no per-endpoint exceptions: any non-`ok` response is a real error.
 
 ---
 

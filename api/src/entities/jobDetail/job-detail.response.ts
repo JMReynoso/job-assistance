@@ -1,14 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { CompanyResearch } from '../companyResearch/entities/company-research.entity';
 import { Contact } from '../contacts/entities/contact.entity';
-import { GeneratedContent } from '../generatedContent/entities/generated-content.entity';
-import { MissingKeyword } from '../generatedContent/entities/missing-keyword.entity';
+import { GeneratedContentWithKeywordsResponse } from '../generatedContent/generated-content-with-keywords.response';
 import { Job } from '../jobs/job.entity';
 
 /**
- * One job as the detail window sees it: the four reads it already makes,
- * answered in one response so a save can hand back server truth for every
- * field it just wrote.
+ * One job as the detail window sees it: the job and its satellites in one
+ * response. Both GET (opening a job) and PATCH (saving it) answer with this,
+ * so each hands back server truth for every field.
  */
 export class JobDetailResponse {
     @ApiProperty({ type: Job })
@@ -20,6 +19,6 @@ export class JobDetailResponse {
     @ApiProperty({ type: CompanyResearch, nullable: true })
     research: CompanyResearch | null;
 
-    @ApiProperty({ type: GeneratedContent, nullable: true })
-    content: (GeneratedContent & { missingKeywords: MissingKeyword[] }) | null;
+    @ApiProperty({ type: GeneratedContentWithKeywordsResponse, nullable: true })
+    content: GeneratedContentWithKeywordsResponse | null;
 }
