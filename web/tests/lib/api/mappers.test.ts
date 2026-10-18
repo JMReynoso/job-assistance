@@ -124,7 +124,7 @@ describe("mapJob", () => {
     expect(mapJob(buildApiJob({ extraUrls: null })).extraLinks).toBe("");
   });
 
-  it("leaves the by-job fields empty — they aren't part of GET /jobs", () => {
+  it("leaves the satellite fields empty — they aren't part of GET /jobs", () => {
     const job = mapJob(buildApiJob());
     expect(job.contacts).toEqual([]);
     expect(job.notes).toBe("");

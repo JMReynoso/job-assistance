@@ -67,9 +67,9 @@ export function mapContact(api: ApiContact): JobContact {
 }
 
 /**
- * A job as the list knows it. The three by-job resources aren't part of
- * GET /jobs, so those fields start empty and are filled by mergeJobDetail when
- * the row is opened.
+ * A job as the list knows it. A Job Detail's satellites (contacts, research
+ * and content) aren't part of GET /jobs, so those fields start empty and are
+ * filled by mergeJobDetail when the row is opened.
  *
  * Every string field coalesces away null: these bind to controlled inputs, and
  * a null value flips one to uncontrolled, at which point it silently stops
@@ -97,7 +97,7 @@ export function mapJob(api: ApiJob): Job {
   };
 }
 
-/** Folds the three by-job reads onto the job they belong to. */
+/** Folds a Job Detail's satellites onto the job they belong to. */
 export function mergeJobDetail(detail: ApiJobDetail): Job {
   return {
     ...mapJob(detail.job),

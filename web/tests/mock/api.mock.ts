@@ -131,7 +131,7 @@ const METHOD_PREFIX = /^(GET|POST|PATCH|PUT|DELETE) (.+)$/;
  * Whether a failOn / hangOn option targets this request. "GET /detail" must
  * match on method and path; a bare "/detail" matches the path under any method.
  */
-function targets(option: string | undefined, method: string, url: string): boolean {
+function matchesRequest(option: string | undefined, method: string, url: string): boolean {
   if (!option) return false;
   const prefixed = METHOD_PREFIX.exec(option);
   return prefixed ? method === prefixed[1] && url.includes(prefixed[2]) : url.includes(option);
@@ -158,12 +158,12 @@ export function mockApi(options: MockApiOptions = {}): jest.Mock {
     const url = String(input);
     const method = init?.method ?? "GET";
 
-    if (targets(failOn, method, url)) {
+    if (matchesRequest(failOn, method, url)) {
       if (failStatus === 0) throw new TypeError("Failed to fetch");
       return { ok: false, status: failStatus, json: async () => ({}) } as Response;
     }
 
-    if (targets(hangOn, method, url)) return new Promise<Response>(() => {});
+    if (matchesRequest(hangOn, method, url)) return new Promise<Response>(() => {});
 
     const sent = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
 
@@ -231,7 +231,13 @@ export function mockApi(options: MockApiOptions = {}): jest.Mock {
       return { ok: true, status: 200, json: async () => detail } as Response;
     }
 
-    return { ok: true, status: 200, json: async () => jobs } as Response;
+    // The only other read the app makes is the tracker list. Anything else — a
+    // retired by-job URL, say — fails loudly instead of answering 200, so a test
+    // can't pass by hitting a route the app doesn't use.
+    if (method === "GET" && url.endsWith("/jobs")) {
+      return { ok: true, status: 200, json: async () => jobs } as Response;
+    }
+    throw new Error(`mockApi: unexpected ${method} ${url}`);
   });
 
   global.fetch = fetchMock as unknown as typeof fetch;
