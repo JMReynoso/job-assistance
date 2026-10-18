@@ -8,10 +8,11 @@ import { UpdateJobDetailDto } from './dto/update-job-detail.dto';
 import { JobDetailResponse } from './job-detail.response';
 
 /**
- * The one write path behind the job detail window's Save button.
+ * The one read and the one write behind the job detail window.
  *
- * A job in the UI sense is four rows in four tables, so saving it fans out
- * across three services. This sits above them all rather than inside
+ * A job in the UI sense is four rows in four tables, so reading it fans in
+ * from four services and saving it fans out across three. This sits above
+ * them all rather than inside
  * JobsService: GeneratedContentModule already imports JobsModule (for the
  * company-name fallback), so orchestrating from there would be a circular
  * module dependency.
@@ -29,6 +30,36 @@ export class JobDetailService {
         private readonly generatedContentService: GeneratedContentService,
         private readonly contactsService: ContactsService,
     ) {}
+
+    /**
+     * The job and its satellites (contacts, newest research, newest generated
+     * content with its keywords), assembled in one place so that what a job
+     * detail contains is defined exactly once.
+     *
+     * The four reads run concurrently: none depends on another, so this costs
+     * the slowest read rather than the sum of all four.
+     *
+     * Promise.all rather than allSettled on purpose. The satellites a new job
+     * legitimately lacks come back as [] or null from perfectly successful
+     * reads, so absence is already handled, and anything that rejects is a
+     * real failure to surface as one error. The job read's not-found is the
+     * rejection that matters: it fails the whole batch, which is the 404. The
+     * other three reads are left to finish harmlessly. If these reads ever
+     * diverge in reliability, allSettled is the upgrade path.
+     *
+     * Satellites are null, never undefined: Fastify sends an empty body for
+     * undefined and an undefined key vanishes from the JSON.
+     */
+    async findOne(jobId: number): Promise<JobDetailResponse> {
+        const [job, contacts, research, content] = await Promise.all([
+            this.jobsService.findOne(jobId),
+            this.contactsService.findByJobId(jobId),
+            this.companyResearchService.findByJobId(jobId),
+            this.generatedContentService.findByJobIdWithKeywords(jobId),
+        ]);
+
+        return { job, contacts, research, content };
+    }
 
     async update(
         jobId: number,

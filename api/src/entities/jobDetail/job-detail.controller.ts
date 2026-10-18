@@ -1,4 +1,11 @@
-import { Body, Controller, Param, ParseIntPipe, Patch } from '@nestjs/common';
+import {
+    Body,
+    Controller,
+    Get,
+    Param,
+    ParseIntPipe,
+    Patch,
+} from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UpdateJobDetailDto } from './dto/update-job-detail.dto';
 import { JobDetailResponse } from './job-detail.response';
@@ -11,7 +18,28 @@ export class JobDetailController {
 
     // ':id/detail', never ':jobId/detail' — find-my-way throws AT BOOT for two
     // routes differing only by parameter name, and jobs.controller.ts already
-    // owns PATCH /jobs/:id.
+    // owns GET and PATCH /jobs/:id. The same goes for the PATCH below.
+    @Get(':id/detail')
+    @ApiOperation({
+        summary: 'Get everything the job detail window shows for one job',
+        description:
+            'The job, all of its contacts (most reachable first), its newest ' +
+            'company research and its newest generated content with its ' +
+            'missing keywords. A job that has never been researched or ' +
+            'generated for still answers 200: contacts is [] and research ' +
+            'and content are null. Only a job that does not exist is a 404.',
+    })
+    @ApiParam({ name: 'id', type: Number })
+    @ApiResponse({
+        status: 200,
+        description: 'The job detail.',
+        type: JobDetailResponse,
+    })
+    @ApiResponse({ status: 404, description: 'No job with that id.' })
+    findOne(@Param('id', ParseIntPipe) id: number): Promise<JobDetailResponse> {
+        return this.jobDetailService.findOne(id);
+    }
+
     @Patch(':id/detail')
     @ApiOperation({
         summary:

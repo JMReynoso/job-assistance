@@ -89,6 +89,45 @@ describe('JobDetailService', () => {
         service = module.get(JobDetailService);
     });
 
+    describe('findOne', () => {
+        it('returns the Job with its Contacts, Company Research and Generated Content', async () => {
+            // Act
+            const result = await service.findOne(JOB_ID);
+
+            // Assert
+            expect(result).toEqual({ job, contacts, research, content });
+        });
+
+        it('returns [] Contacts and null research and content for a Job with no satellites', async () => {
+            // Arrange
+            contactsService.findByJobId.mockResolvedValue([]);
+            researchService.findByJobId.mockResolvedValue(null);
+            contentService.findByJobIdWithKeywords.mockResolvedValue(null);
+
+            // Act
+            const result = await service.findOne(JOB_ID);
+
+            // Assert — toStrictEqual: null must be null, never undefined
+            expect(result).toStrictEqual({
+                job,
+                contacts: [],
+                research: null,
+                content: null,
+            });
+        });
+
+        it('rejects with NotFoundException when the Job does not exist', async () => {
+            // Arrange — orphaned satellites may still carry this jobId
+            jobs.findOne.mockRejectedValue(new NotFoundException());
+
+            // Act
+            const result = service.findOne(JOB_ID);
+
+            // Assert
+            await expect(result).rejects.toThrow(NotFoundException);
+        });
+    });
+
     describe('update', () => {
         it('rejects with NotFoundException and writes nothing when the Job does not exist', async () => {
             // Arrange
