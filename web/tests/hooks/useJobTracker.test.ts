@@ -422,7 +422,7 @@ describe("useJobTracker", () => {
     });
 
     it("sets saveStatus to error and keeps the draft dirty when the save fails, leaving the job list untouched", async () => {
-      const { result } = await renderLoaded({ failOn: "/detail" });
+      const { result } = await renderLoaded({ failOn: "PATCH /detail" });
       await openAndSettle(result, "1");
       act(() => result.current.setDraftField("notes", "Updated notes"));
       const jobsBefore = result.current.jobs;
@@ -501,7 +501,7 @@ describe("useJobTracker", () => {
     });
 
     it("'save & close' leaves the window open and clears the close-confirmation when the save fails", async () => {
-      const { result } = await renderLoaded({ failOn: "/detail" });
+      const { result } = await renderLoaded({ failOn: "PATCH /detail" });
       await openAndSettle(result, "1");
       act(() => result.current.setDraftField("notes", "Updated notes"));
 

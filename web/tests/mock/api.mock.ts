@@ -109,15 +109,32 @@ export interface MockApiOptions {
   /** Response for POST /jobs; the posted body is echoed over it. */
   createdJob?: ApiJob;
   /**
-   * Substring of a path that should fail, e.g. "/jobs" or "/contacts". Use
-   * "/detail" to force PATCH /jobs/:id/detail specifically without also
-   * failing the plain GET /jobs/:id fetch.
+   * Substring of a path that should fail, e.g. "/jobs" or "/contacts",
+   * optionally prefixed with an HTTP method: "GET /detail" fails only the
+   * Job Detail load, "PATCH /detail" only the save. A bare path matches any
+   * method — so a bare "/detail" fails the load *and* the save, which is
+   * rarely what a test means.
    */
   failOn?: string;
   /** Status for the failing route; 0 simulates never reaching the server. */
   failStatus?: number;
-  /** Substring of a path whose request never settles — for testing cancel. */
+  /**
+   * Substring of a path whose request never settles — for testing cancel.
+   * Takes the same optional method prefix as {@link MockApiOptions.failOn}.
+   */
   hangOn?: string;
+}
+
+const METHOD_PREFIX = /^(GET|POST|PATCH|PUT|DELETE) (.+)$/;
+
+/**
+ * Whether a failOn / hangOn option targets this request. "GET /detail" must
+ * match on method and path; a bare "/detail" matches the path under any method.
+ */
+function targets(option: string | undefined, method: string, url: string): boolean {
+  if (!option) return false;
+  const prefixed = METHOD_PREFIX.exec(option);
+  return prefixed ? method === prefixed[1] && url.includes(prefixed[2]) : url.includes(option);
 }
 
 /**
@@ -139,15 +156,15 @@ export function mockApi(options: MockApiOptions = {}): jest.Mock {
 
   const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
+    const method = init?.method ?? "GET";
 
-    if (failOn && url.includes(failOn)) {
+    if (targets(failOn, method, url)) {
       if (failStatus === 0) throw new TypeError("Failed to fetch");
       return { ok: false, status: failStatus, json: async () => ({}) } as Response;
     }
 
-    if (hangOn && url.includes(hangOn)) return new Promise<Response>(() => {});
+    if (targets(hangOn, method, url)) return new Promise<Response>(() => {});
 
-    const method = init?.method ?? "GET";
     const sent = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
 
     if (url.includes("/generated-content/regenerate")) {
